@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Camera Manager
 
 @MainActor
-final class CameraManager: NSObject {
+final class CameraManager: NSObject, CameraManaging {
 
     // Live preview layer for display in the camera bubble
     let previewLayer = AVCaptureVideoPreviewLayer()
@@ -74,6 +74,10 @@ final class CameraManager: NSObject {
         guard session.isRunning else { return }
         session.stopRunning()
         isRunning = false
+    }
+
+    func setFrameHandler(_ handler: ((CVPixelBuffer, CMTime) -> Void)?) {
+        onFrame = handler
     }
 
     // MARK: - Device switching

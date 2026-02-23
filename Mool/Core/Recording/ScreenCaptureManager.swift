@@ -3,22 +3,12 @@ import CoreMedia
 import CoreVideo
 import Foundation
 
-// MARK: - Screen Capture Delegate Protocol
-
-/// Delegate is called from background capture queues — implementations must be thread-safe.
-/// Use `nonisolated` on conforming actor-isolated types.
-protocol ScreenCaptureManagerDelegate: AnyObject {
-    func screenCaptureManager(_ manager: ScreenCaptureManager, didOutputVideoBuffer sampleBuffer: CMSampleBuffer)
-    func screenCaptureManager(_ manager: ScreenCaptureManager, didOutputAudioBuffer sampleBuffer: CMSampleBuffer)
-    func screenCaptureManagerDidStop(_ manager: ScreenCaptureManager, error: Error?)
-}
-
 // MARK: - Screen Capture Manager
 
 @MainActor
-final class ScreenCaptureManager: NSObject {
+final class ScreenCaptureManager: NSObject, ScreenCaptureManaging {
 
-    nonisolated(unsafe) weak var delegate: ScreenCaptureManagerDelegate?
+    nonisolated(unsafe) weak var delegate: (any ScreenCaptureManagingDelegate)?
 
     private var stream: SCStream?
     private var savedFilter: SCContentFilter?
@@ -104,10 +94,10 @@ extension ScreenCaptureManager: SCStreamOutput {
         // Call delegate directly on the capture queue — delegate must be thread-safe
         switch type {
         case .screen:
-            delegate?.screenCaptureManager(self, didOutputVideoBuffer: sampleBuffer)
+            delegate?.screenCaptureManagerDidOutputVideoBuffer(sampleBuffer)
         case .audio:
-            delegate?.screenCaptureManager(self, didOutputAudioBuffer: sampleBuffer)
-        @unknown default:
+            delegate?.screenCaptureManagerDidOutputAudioBuffer(sampleBuffer)
+        default:
             break
         }
     }
@@ -118,7 +108,7 @@ extension ScreenCaptureManager: SCStreamOutput {
 extension ScreenCaptureManager: SCStreamDelegate {
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
         Task { @MainActor in
-            self.delegate?.screenCaptureManagerDidStop(self, error: error)
+            self.delegate?.screenCaptureManagerDidStop(error: error)
         }
     }
 }

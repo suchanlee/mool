@@ -6,7 +6,7 @@ import SwiftUI
 
 /// Circular camera preview with drag support and a corner resize handle.
 struct CameraBubbleView: View {
-    let cameraManager: CameraManager
+    let cameraManager: any CameraManaging
 
     @State private var size: CGFloat = 200
     @State private var isDraggingResize = false

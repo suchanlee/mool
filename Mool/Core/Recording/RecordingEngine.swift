@@ -16,7 +16,7 @@ final class RecordingEngine {
     // MARK: - Public state
     // nonisolated(unsafe) allows read from capture queues (best-effort guard, written only on MainActor)
 
-    nonisolated(unsafe) private(set) var state: RecordingState = .idle
+    nonisolated(unsafe) var state: RecordingState = .idle
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var currentSession: RecordingSession?
     private(set) var lastCompletedURL: URL?
@@ -26,10 +26,10 @@ final class RecordingEngine {
 
     // MARK: - Sub-managers (internal, accessed by WindowCoordinator for preview)
 
-    let cameraManager = CameraManager()
-    private let screenManager = ScreenCaptureManager()
-    private let audioManager = AudioManager()
-    nonisolated(unsafe) private var videoWriter: VideoWriter?
+    let cameraManager: any CameraManaging
+    private let screenManager: any ScreenCaptureManaging
+    private let audioManager: any AudioManaging
+    @ObservationIgnored nonisolated(unsafe) private var videoWriter: VideoWriter?
     private unowned let storageManager: StorageManager
 
     // MARK: - Timers
@@ -39,9 +39,19 @@ final class RecordingEngine {
 
     // MARK: - Init
 
-    init(storageManager: StorageManager) {
+    /// Production init — creates concrete managers by default.
+    /// Pass non-nil values for any manager to inject a custom implementation (e.g. fakes in tests).
+    init(
+        storageManager: StorageManager,
+        cameraManager: (any CameraManaging)? = nil,
+        screenManager: (any ScreenCaptureManaging)? = nil,
+        audioManager: (any AudioManaging)? = nil
+    ) {
         self.storageManager = storageManager
-        screenManager.delegate = self
+        self.cameraManager = cameraManager ?? CameraManager()
+        self.screenManager = screenManager ?? ScreenCaptureManager()
+        self.audioManager = audioManager ?? AudioManager()
+        self.screenManager.delegate = self
     }
 
     // MARK: - Public API
@@ -187,6 +197,7 @@ final class RecordingEngine {
                     let idx = min(settings.selectedDisplayIndex, displays.count - 1)
                     try await screenManager.configureForDisplay(
                         displays[idx],
+                        excludingWindows: [],
                         captureSystemAudio: settings.captureSystemAudio
                     )
                 }
@@ -203,7 +214,7 @@ final class RecordingEngine {
             cameraManager.startCapture()
 
             // Route camera frames directly to the writer (called on capture queue)
-            cameraManager.onFrame = { [weak self] (pixelBuffer: CVPixelBuffer, _: CMTime) in
+            cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, _: CMTime) in
                 self?.videoWriter?.updateCameraFrame(pixelBuffer)
             }
         }
@@ -212,7 +223,7 @@ final class RecordingEngine {
         if settings.captureMicrophone {
             try audioManager.setupSession()
             audioManager.startCapture()
-            audioManager.onMicBuffer = { [weak self] (buffer: CMSampleBuffer) in
+            audioManager.setMicHandler { [weak self] (buffer: CMSampleBuffer) in
                 self?.videoWriter?.appendMicAudio(buffer)
             }
         }
@@ -240,21 +251,21 @@ final class RecordingEngine {
     }
 }
 
-// MARK: - ScreenCaptureManagerDelegate
+// MARK: - ScreenCaptureManagingDelegate
 // These are called from capture queues (not @MainActor), so they must be nonisolated.
 
-extension RecordingEngine: ScreenCaptureManagerDelegate {
-    nonisolated func screenCaptureManager(_ manager: ScreenCaptureManager, didOutputVideoBuffer sampleBuffer: CMSampleBuffer) {
+extension RecordingEngine: ScreenCaptureManagingDelegate {
+    nonisolated func screenCaptureManagerDidOutputVideoBuffer(_ sampleBuffer: CMSampleBuffer) {
         guard state == .recording else { return }
         videoWriter?.appendVideoFrame(sampleBuffer)
     }
 
-    nonisolated func screenCaptureManager(_ manager: ScreenCaptureManager, didOutputAudioBuffer sampleBuffer: CMSampleBuffer) {
+    nonisolated func screenCaptureManagerDidOutputAudioBuffer(_ sampleBuffer: CMSampleBuffer) {
         guard state == .recording else { return }
         videoWriter?.appendSystemAudio(sampleBuffer)
     }
 
-    nonisolated func screenCaptureManagerDidStop(_ manager: ScreenCaptureManager, error: Error?) {
+    nonisolated func screenCaptureManagerDidStop(error: Error?) {
         if let error {
             print("[RecordingEngine] Screen capture stopped unexpectedly: \(error)")
         }

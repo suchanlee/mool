@@ -6,7 +6,7 @@ import CoreMedia
 /// Manages microphone capture via AVCaptureSession.
 /// System audio is captured directly by ScreenCaptureManager via SCStream.
 @MainActor
-final class AudioManager: NSObject {
+final class AudioManager: NSObject, AudioManaging {
 
     private let session = AVCaptureSession()
     private var audioOutput: AVCaptureAudioDataOutput?
@@ -50,6 +50,10 @@ final class AudioManager: NSObject {
         guard session.isRunning else { return }
         session.stopRunning()
         isRunning = false
+    }
+
+    func setMicHandler(_ handler: ((CMSampleBuffer) -> Void)?) {
+        onMicBuffer = handler
     }
 }
 

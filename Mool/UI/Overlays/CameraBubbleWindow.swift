@@ -9,7 +9,7 @@ final class CameraBubbleWindow: NSPanel {
     private var dragStart: NSPoint = .zero
     private var frameOnDragStart: NSRect = .zero
 
-    init(cameraManager: CameraManager) {
+    init(cameraManager: any CameraManaging) {
         let defaultSize: CGFloat = 200
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: defaultSize, height: defaultSize),
