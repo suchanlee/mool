@@ -41,12 +41,14 @@ struct ControlPanelView: View {
                             engine.pauseRecording()
                         }
                     }
+                    .accessibilityIdentifier(engine.state == .paused ? "hud.resume" : "hud.pause")
                 }
 
                 // Stop
                 HUDButton(icon: "stop.fill", tint: .red) {
                     Task { await engine.stopRecording() }
                 }
+                .accessibilityIdentifier("hud.stop")
 
                 // Annotate toggle
                 HUDButton(
@@ -56,6 +58,7 @@ struct ControlPanelView: View {
                 ) {
                     annotationManager.isAnnotating.toggle()
                 }
+                .accessibilityIdentifier("hud.annotate")
             }
 
             // Annotation tools (shown when annotating)
@@ -108,6 +111,7 @@ struct ControlPanelView: View {
                 ) {
                     annotationManager.selectedTool = tool
                 }
+                .accessibilityIdentifier("hud.tool.\(tool)")
             }
 
             // Color picker

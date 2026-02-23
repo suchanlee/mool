@@ -220,6 +220,7 @@ struct SourcePickerView: View {
             .tint(.red)
             .keyboardShortcut(.return, modifiers: [])
             .disabled(engine.settings.mode.includesScreen && engine.availableSources.displays.isEmpty && engine.settings.selectedWindowID == nil)
+            .accessibilityIdentifier("sourcePicker.record")
         }
     }
 }
@@ -259,6 +260,7 @@ struct ModeCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("modeCard.\(mode.rawValue)")
     }
 
     private var modeIcon: String {
