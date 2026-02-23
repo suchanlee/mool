@@ -44,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await permissionManager.checkAllPermissions()
         }
+
+        runUITestLaunchActionIfNeeded(coordinator: coordinator)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -73,4 +75,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             print("[AppDelegate] Login item toggle failed: \(error)")
         }
     }
+
+    // MARK: - UI Test Hooks
+
+    private func runUITestLaunchActionIfNeeded(coordinator: WindowCoordinator) {
+        let args = Set(ProcessInfo.processInfo.arguments)
+        let action: UITestLaunchAction
+        if args.contains("UITEST_OPEN_LIBRARY") {
+            action = .openLibrary
+        } else if args.contains("UITEST_OPEN_SETTINGS") {
+            action = .openSettings
+        } else if args.contains("UITEST_OPEN_SOURCE_PICKER") {
+            action = .openSourcePicker
+        } else {
+            return
+        }
+
+        Task {
+            // Window scene routing can be delayed right after launch.
+            // Retry for a short period so UI tests can reliably start on the intended screen.
+            for _ in 0..<12 {
+                NSApp.setActivationPolicy(.regular)
+                NSApp.activate(ignoringOtherApps: true)
+                performUITestLaunchAction(action, coordinator: coordinator)
+
+                if isUITestLaunchActionSatisfied(action) {
+                    return
+                }
+
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+    }
+
+    private func performUITestLaunchAction(_ action: UITestLaunchAction, coordinator: WindowCoordinator) {
+        switch action {
+        case .openLibrary:
+            let selector = Selector(("showLibraryWindow:"))
+            print("[UITest] showLibraryWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: nil)))
+            NSApp.sendAction(selector, to: nil, from: nil)
+        case .openSettings:
+            let selector = Selector(("showSettingsWindow:"))
+            print("[UITest] showSettingsWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: nil)))
+            NSApp.sendAction(selector, to: nil, from: nil)
+        case .openSourcePicker:
+            coordinator.showSourcePicker()
+        }
+    }
+
+    private func isUITestLaunchActionSatisfied(_ action: UITestLaunchAction) -> Bool {
+        switch action {
+        case .openLibrary:
+            return NSApp.windows.contains { $0.isVisible && $0.title == "Library" }
+        case .openSettings:
+            return NSApp.windows.contains {
+                $0.isVisible && ($0.title.contains("Settings") || $0.title.contains("Preferences"))
+            }
+        case .openSourcePicker:
+            return NSApp.windows.contains { $0.isVisible && $0.title == "New Recording" }
+        }
+    }
 }
+
+private enum UITestLaunchAction {
+    case openLibrary
+    case openSettings
+    case openSourcePicker
+    }

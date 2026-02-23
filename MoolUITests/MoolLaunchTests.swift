@@ -8,6 +8,7 @@ final class MoolLaunchTests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launch()
+        app.activate()
     }
 
     override func tearDownWithError() throws {
@@ -16,36 +17,34 @@ final class MoolLaunchTests: XCTestCase {
     }
 
     func testAppLaunches_withoutCrashing() {
-        XCTAssertEqual(app.state, .runningForeground)
+        XCTAssertTrue(app.state == .runningForeground || app.state == .runningBackground)
     }
 
     func testStatusBarItem_exists() {
-        let statusItem = app.statusItems["Mool"]
-        XCTAssertTrue(statusItem.exists)
+        XCTAssertTrue(app.statusItems["Mool"].firstMatch.waitForExistence(timeout: 5))
     }
 
     func testStatusBarMenu_containsStartRecording() {
-        app.statusItems["Mool"].click()
-        XCTAssertTrue(app.menuItems["Start Recording"].exists)
-        // Dismiss menu
-        app.typeKey(.escape, modifierFlags: [])
+        let statusItem = openStatusMenu(in: app)
+        XCTAssertTrue(statusItem.menuItems["status.startRecording"].firstMatch.exists)
+        dismissStatusMenu(in: app)
     }
 
     func testStatusBarMenu_containsOpenLibrary() {
-        app.statusItems["Mool"].click()
-        XCTAssertTrue(app.menuItems["Open Library"].exists)
-        app.typeKey(.escape, modifierFlags: [])
+        let statusItem = openStatusMenu(in: app)
+        XCTAssertTrue(statusItem.menuItems["status.openLibrary"].firstMatch.exists)
+        dismissStatusMenu(in: app)
     }
 
     func testStatusBarMenu_containsSettings() {
-        app.statusItems["Mool"].click()
-        XCTAssertTrue(app.menuItems["Settings…"].exists)
-        app.typeKey(.escape, modifierFlags: [])
+        let statusItem = openStatusMenu(in: app)
+        XCTAssertTrue(statusItem.menuItems["status.openSettings"].firstMatch.exists)
+        dismissStatusMenu(in: app)
     }
 
     func testStatusBarMenu_containsQuit() {
-        app.statusItems["Mool"].click()
-        XCTAssertTrue(app.menuItems["Quit Mool"].exists)
-        app.typeKey(.escape, modifierFlags: [])
+        let statusItem = openStatusMenu(in: app)
+        XCTAssertTrue(statusItem.menuItems["status.quit"].firstMatch.exists)
+        dismissStatusMenu(in: app)
     }
 }

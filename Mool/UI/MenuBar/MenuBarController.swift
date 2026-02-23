@@ -51,17 +51,28 @@ final class MenuBarController {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        menu.addItem(withTitle: "Start Recording", action: #selector(startRecording), keyEquivalent: "")
-            .target = self
-        menu.addItem(withTitle: "Stop Recording", action: #selector(stopRecording), keyEquivalent: "")
-            .target = self
+        let startItem = menu.addItem(withTitle: "Start Recording", action: #selector(startRecording), keyEquivalent: "")
+        startItem.target = self
+        startItem.identifier = NSUserInterfaceItemIdentifier("status.startRecording")
+
+        let stopItem = menu.addItem(withTitle: "Stop Recording", action: #selector(stopRecording), keyEquivalent: "")
+        stopItem.target = self
+        stopItem.identifier = NSUserInterfaceItemIdentifier("status.stopRecording")
+
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Open Library", action: #selector(openLibrary), keyEquivalent: "")
-            .target = self
-        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
-            .target = self
+
+        let libraryItem = menu.addItem(withTitle: "Open Library", action: #selector(openLibrary), keyEquivalent: "")
+        libraryItem.target = self
+        libraryItem.identifier = NSUserInterfaceItemIdentifier("status.openLibrary")
+
+        let settingsItem = menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        settingsItem.identifier = NSUserInterfaceItemIdentifier("status.openSettings")
+
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Mool", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        let quitItem = menu.addItem(withTitle: "Quit Mool", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem.identifier = NSUserInterfaceItemIdentifier("status.quit")
 
         statusBarMenu = menu
         statusItem?.menu = menu
@@ -131,14 +142,18 @@ final class MenuBarController {
             window.makeKeyAndOrderFront(nil)
         } else {
             // Open via SwiftUI window group
-            NSApp.sendAction(Selector(("showLibraryWindow:")), to: nil, from: self)
+            let selector = Selector(("showLibraryWindow:"))
+            print("[UITest] menu showLibraryWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: self)))
+            NSApp.sendAction(selector, to: nil, from: self)
         }
     }
 
     @objc private func openSettings() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        let selector = Selector(("showSettingsWindow:"))
+        print("[UITest] menu showSettingsWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: nil)))
+        NSApp.sendAction(selector, to: nil, from: nil)
     }
 
     private func showError(_ error: Error) {

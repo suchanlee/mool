@@ -14,9 +14,7 @@ import SwiftUI
 final class RecordingEngine {
 
     // MARK: - Public state
-    // nonisolated(unsafe) allows read from capture queues (best-effort guard, written only on MainActor)
-
-    nonisolated(unsafe) var state: RecordingState = .idle
+    var state: RecordingState = .idle
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var currentSession: RecordingSession?
     private(set) var lastCompletedURL: URL?
@@ -35,7 +33,6 @@ final class RecordingEngine {
     // MARK: - Timers
 
     private var elapsedTimer: Timer?
-    private var countdownTimer: Timer?
 
     // MARK: - Init
 
@@ -142,20 +139,11 @@ final class RecordingEngine {
         var remaining = settings.countdownDuration
         state = .countdown(secondsRemaining: remaining)
 
-        await withCheckedContinuation { continuation in
-            countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-                guard let self else { timer.invalidate(); continuation.resume(); return }
-                remaining -= 1
-                if remaining <= 0 {
-                    timer.invalidate()
-                    Task { @MainActor in
-                        continuation.resume()
-                    }
-                } else {
-                    Task { @MainActor in
-                        self.state = .countdown(secondsRemaining: remaining)
-                    }
-                }
+        while remaining > 0 {
+            try? await Task.sleep(for: .seconds(1))
+            remaining -= 1
+            if remaining > 0 {
+                state = .countdown(secondsRemaining: remaining)
             }
         }
     }
@@ -256,12 +244,10 @@ final class RecordingEngine {
 
 extension RecordingEngine: ScreenCaptureManagingDelegate {
     nonisolated func screenCaptureManagerDidOutputVideoBuffer(_ sampleBuffer: CMSampleBuffer) {
-        guard state == .recording else { return }
         videoWriter?.appendVideoFrame(sampleBuffer)
     }
 
     nonisolated func screenCaptureManagerDidOutputAudioBuffer(_ sampleBuffer: CMSampleBuffer) {
-        guard state == .recording else { return }
         videoWriter?.appendSystemAudio(sampleBuffer)
     }
 
