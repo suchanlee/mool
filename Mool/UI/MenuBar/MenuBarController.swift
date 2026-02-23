@@ -5,8 +5,7 @@ import SwiftUI
 
 /// Manages the NSStatusItem (menu bar icon) and associated menu/popover.
 @MainActor
-final class MenuBarController {
-
+final class MenuBarController: NSObject, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private var statusBarMenu: NSMenu?
     private let quickRecorderPopover = NSPopover()
@@ -26,6 +25,7 @@ final class MenuBarController {
         self.recordingEngine = recordingEngine
         self.windowCoordinator = windowCoordinator
         self.permissionManager = permissionManager
+        super.init()
         setupStatusItem()
         observeRecordingState()
     }
@@ -46,6 +46,7 @@ final class MenuBarController {
 
         quickRecorderPopover.behavior = .transient
         quickRecorderPopover.animates = true
+        quickRecorderPopover.delegate = self
         buildMenu()
     }
 
@@ -98,7 +99,7 @@ final class MenuBarController {
 
         menu.items.first(where: { $0.identifier == NSUserInterfaceItemIdentifier("status.startRecording") })?.isEnabled = isIdle
         menu.items.first(where: { $0.identifier == NSUserInterfaceItemIdentifier("status.stopRecording") })?.isEnabled =
-        isRecording || recordingEngine.state == .paused
+            isRecording || recordingEngine.state == .paused
     }
 
     private func updateStatusIcon() {
@@ -126,6 +127,7 @@ final class MenuBarController {
 
         switch event.type {
         case .rightMouseUp:
+            closeQuickRecorderPopover()
             showContextMenu()
         default:
             toggleQuickRecorderPopover()
@@ -133,7 +135,7 @@ final class MenuBarController {
     }
 
     @objc private func startRecording() {
-        quickRecorderPopover.performClose(nil)
+        closeQuickRecorderPopover()
         Task {
             do {
                 try await recordingEngine.startRecording()
@@ -145,7 +147,7 @@ final class MenuBarController {
     }
 
     @objc private func stopRecording() {
-        quickRecorderPopover.performClose(nil)
+        closeQuickRecorderPopover()
         Task {
             await recordingEngine.stopRecording()
             windowCoordinator.hideOverlays()
@@ -153,7 +155,7 @@ final class MenuBarController {
     }
 
     @objc private func openLibrary() {
-        quickRecorderPopover.performClose(nil)
+        closeQuickRecorderPopover()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.title == "Library" }) {
@@ -164,7 +166,7 @@ final class MenuBarController {
     }
 
     @objc private func openSettings() {
-        quickRecorderPopover.performClose(nil)
+        closeQuickRecorderPopover()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
@@ -181,7 +183,7 @@ final class MenuBarController {
         guard let button = statusItem?.button else { return }
 
         if quickRecorderPopover.isShown {
-            quickRecorderPopover.performClose(nil)
+            closeQuickRecorderPopover()
             return
         }
 
@@ -194,6 +196,15 @@ final class MenuBarController {
 
         quickRecorderPopover.contentViewController = NSHostingController(rootView: view)
         quickRecorderPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+
+    private func closeQuickRecorderPopover() {
+        guard quickRecorderPopover.isShown else { return }
+        quickRecorderPopover.performClose(nil)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        recordingEngine.teardownQuickRecorderContext()
     }
 
     private func showPendingRuntimeErrorIfNeeded() {
@@ -219,7 +230,7 @@ final class MenuBarController {
 
 extension NSImage {
     func tinted(with color: NSColor) -> NSImage {
-        let image = self.copy() as! NSImage
+        guard let image = copy() as? NSImage else { return self }
         image.lockFocus()
         color.set()
         NSRect(origin: .zero, size: image.size).fill(using: .sourceAtop)
