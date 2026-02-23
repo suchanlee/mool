@@ -225,3 +225,14 @@ Implemented via `NSEvent.addGlobalMonitorForEvents(matching: .keyDown)`.
 5. **Combine + @Observable** — `RecordingEngine` is `@Observable`; child managers publish via Combine subjects where fine-grained control is needed (e.g., per-frame camera preview).
 
 6. **Local only** — No networking stack, no auth, no telemetry. All data stays in `~/Movies/Mool/`.
+
+---
+
+## Testing Infrastructure
+
+- Unit and UI test targets are declared in `project.yml`:
+  - `MoolTests` (`bundle.unit-test`)
+  - `MoolUITests` (`bundle.ui-testing`)
+- Capture manager protocols (`ScreenCaptureManaging`, `CameraManaging`, `AudioManaging`) provide DI seams so `RecordingEngine` can be tested with fakes.
+- UI tests rely on explicit accessibility identifiers on critical controls (HUD actions and source picker mode/record controls).
+- For local/dev testing, test targets disable code-signing and hardened runtime in `project.yml` to avoid Team ID mismatch when loading the UI test bundle.

@@ -258,6 +258,12 @@ The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its
 - Menu bar with red pulsing icon during recording
 - Global keyboard shortcuts via `NSEvent.addGlobalMonitorForEvents`
 - Login-at-launch via `SMAppService`
+- Testing infrastructure:
+  - `MoolTests` + `MoolUITests` targets in `project.yml`
+  - Protocol-based DI seams for capture managers
+  - Fake capture managers for unit tests
+  - Unit test suites for settings/models/annotation/storage/engine state
+  - XCUITest suites for launch/library/settings/source-picker flows
 
 ### Known gaps / next priorities
 1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has no images, only `Contents.json`. Add PNG assets at standard macOS sizes.
@@ -265,6 +271,7 @@ The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its
 3. **Shortcut conflict detection** — `WindowCoordinator.handleGlobalKeyEvent` does no conflict checking. If the user sets a shortcut that macOS already uses, it silently fails.
 4. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
 5. **Countdown full-screen overlay** — The HUD shows a countdown number, but there's no full-screen countdown splash (like Loom's big number). `RecordingState.countdown(secondsRemaining:)` is published but only consumed by `ControlPanelView`.
+6. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and ambiguous menu item lookup for `Settings…`.
 
 ### Stretch / future features
 - Trim editor (in-app clip trimming via `AVAssetExportSession`)

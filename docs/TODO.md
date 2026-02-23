@@ -107,6 +107,19 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 
 ---
 
+## Phase 11 — Testing Infrastructure
+
+- [x] Add protocol-based DI seams for capture managers (`ScreenCaptureManaging`, `CameraManaging`, `AudioManaging`)
+- [x] Add `MoolTests` and `MoolUITests` targets in `project.yml`
+- [x] Add test fakes for capture managers
+- [x] Add unit tests for settings, models, annotation, storage, and engine state
+- [x] Add accessibility identifiers used by UI tests
+- [x] Add XCUITest suites for launch, library, settings, and source picker flows
+- [x] Fix UI test bundle signing mismatch in local/dev builds (disable test target signing + hardened runtime)
+- [~] Stabilize flaky XCUITests (status item hit-testing and ambiguous `Settings…` menu item query)
+
+---
+
 ## Known Issues / Next Priorities
 
 1. **App Icon** — Placeholder assets only; need actual icon artwork
@@ -114,6 +127,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 3. **Display sleep / disconnect** — No graceful handling if the captured display disappears mid-recording
 4. **Shortcut conflict detection** — No warning when a user-set shortcut conflicts with system shortcuts
 5. **Camera resume gap** — On pause/resume, the camera AVCaptureSession is stopped/started; there may be a brief startup delay before the first frames arrive
+6. **UI test flakiness** — Some XCUITests intermittently fail due status item hit-testing and duplicate `Settings…` menu items in query scope
 
 ---
 
