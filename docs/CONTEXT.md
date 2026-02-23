@@ -1,0 +1,286 @@
+# Mool — Project Context
+
+This file is the single source of truth for picking up this project. It is written for any model, agent, or human developer joining mid-stream. Read this before touching code.
+
+---
+
+## What Mool Is
+
+A **local-only macOS screen recorder** inspired by Loom. Records screen, webcam, and audio into `.mov` files saved to `~/Movies/Mool/`. No accounts, no cloud, no network stack. The app lives in the macOS menu bar.
+
+**Project path:** `/Users/suchanlee/code/mool`
+
+---
+
+## Build Status
+
+**The project builds cleanly with zero errors.**
+
+```bash
+cd /Users/suchanlee/code/mool
+xcodegen generate          # regenerate Mool.xcodeproj from project.yml
+xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' build
+```
+
+- **Always run `xcodegen generate` after adding/removing/moving Swift files.** The `.xcodeproj` is derived from `project.yml` and picks up all `.swift` files under `Mool/` automatically.
+- Xcode 26.2 / Swift 6.2.3 / macOS 26.2 SDK
+- Deployment target: **macOS 14.0** (required for `@Observable` macro)
+
+---
+
+## Repository Layout
+
+```
+mool/
+├── README.md               User-facing build & usage guide
+├── project.yml             xcodegen spec — source of truth for the Xcode project
+├── Mool.xcodeproj/         Generated — do not hand-edit
+├── docs/
+│   ├── CONTEXT.md          ← this file
+│   ├── ARCHITECTURE.md     Full system design, data flows, window architecture
+│   └── TODO.md             Task tracking with per-item status
+└── Mool/                   All Swift source (28 files)
+    ├── App/
+    │   ├── MoolApp.swift               @main SwiftUI entry; WindowGroup for Library + Settings
+    │   └── AppDelegate.swift           NSApplicationDelegate; owns all singletons
+    ├── Core/
+    │   ├── Recording/
+    │   │   ├── RecordingEngine.swift   State machine + pipeline coordinator (KEY FILE)
+    │   │   ├── ScreenCaptureManager.swift  SCStream display/window capture
+    │   │   ├── CameraManager.swift     AVCaptureSession camera + preview layer
+    │   │   ├── AudioManager.swift      AVCaptureSession microphone
+    │   │   └── VideoWriter.swift       AVAssetWriter; composites camera PiP onto screen
+    │   ├── Annotation/
+    │   │   ├── AnnotationManager.swift Stroke state, tool selection, overlay toggle
+    │   │   └── CursorTracker.swift     CGEvent tap for mouse pos + click detection
+    │   ├── Permissions/
+    │   │   └── PermissionManager.swift TCC checks + requests (screen/cam/mic/accessibility)
+    │   └── Storage/
+    │       └── StorageManager.swift    ~/Movies/Mool/ enumeration + file ops
+    ├── Models/
+    │   ├── RecordingSession.swift      Struct: id, startDate, duration, fileURL
+    │   ├── RecordingSettings.swift     @Observable class: all user prefs + RecordingShortcut types
+    │   └── CaptureSource.swift         Enum wrapping SCDisplay / SCWindow; AvailableSources class
+    └── UI/
+        ├── WindowCoordinator.swift     Owns all overlay NSPanels; handles global keyboard shortcuts
+        ├── MenuBar/
+        │   └── MenuBarController.swift NSStatusItem; icon pulses red while recording
+        ├── SourcePicker/
+        │   ├── SourcePickerView.swift  Pre-recording SwiftUI sheet (mode/display/window/quality)
+        │   └── SourcePickerController.swift  Presents SourcePickerView as NSWindow
+        ├── Overlays/
+        │   ├── ControlPanelWindow.swift    NSPanel (.nonactivatingPanel) — never steals focus
+        │   ├── ControlPanelView.swift      HUD: rec indicator, timer, pause/stop, annotation toolbar
+        │   ├── CameraBubbleWindow.swift    Borderless NSPanel; draggable
+        │   ├── CameraBubbleView.swift      Circular cam preview + corner resize handle
+        │   ├── AnnotationOverlayWindow.swift  Full-screen transparent NSWindow for drawing
+        │   └── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
+        ├── Library/
+        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview; delete/rename/reveal
+        ├── Settings/
+        │   ├── SettingsView.swift      TabView: Recording, Shortcuts, Storage, About
+        │   └── KeyboardShortcutRecorder.swift  NSView-based key capture + ShortcutField SwiftUI wrapper
+        └── Onboarding/
+            └── PermissionsView.swift   Step-by-step permission grant UI
+```
+
+---
+
+## Singleton Ownership Chain
+
+Everything is owned by `AppDelegate` and flows down:
+
+```
+AppDelegate
+  ├── permissionManager: PermissionManager
+  ├── storageManager: StorageManager
+  ├── recordingEngine: RecordingEngine(storageManager:)
+  │     ├── settings: RecordingSettings      (var — must be var for @Bindable chain)
+  │     ├── availableSources: AvailableSources
+  │     ├── cameraManager: CameraManager     (public — WindowCoordinator reads previewLayer)
+  │     ├── screenManager: ScreenCaptureManager  (private)
+  │     ├── audioManager: AudioManager       (private)
+  │     └── videoWriter: VideoWriter?        (private, nonisolated(unsafe))
+  ├── windowCoordinator: WindowCoordinator(recordingEngine:)
+  │     ├── annotationManager: AnnotationManager
+  │     ├── cursorTracker: CursorTracker
+  │     ├── controlPanelWindow: ControlPanelWindow
+  │     ├── cameraBubbleWindow: CameraBubbleWindow
+  │     ├── annotationOverlayWindow: AnnotationOverlayWindow
+  │     ├── speakerNotesWindow: SpeakerNotesWindow
+  │     └── sourcePickerController: SourcePickerController
+  └── menuBarController: MenuBarController(engine:coordinator:permissions:)
+```
+
+`SwiftUI` scenes (`Library`, `Settings`) receive `recordingEngine` and `storageManager` via `.environment(obj)` (not `.environmentObject` — we use `@Observable`, not `ObservableObject`).
+
+---
+
+## Recording Flow (step by step)
+
+1. User clicks **Start Recording** in the menu bar (or presses ⌘⇧R).
+2. `MenuBarController` → `WindowCoordinator.showSourcePicker()` → `SourcePickerController.show()`.
+3. `SourcePickerView` appears: user picks mode, display/window, quality, audio options.
+4. User clicks **Record** → `SourcePickerController.startRecording()` → `engine.startRecording()`.
+5. `RecordingEngine.startRecording()`:
+   - Refreshes `availableSources` (SCShareableContent enumeration)
+   - Runs countdown (if `countdownDuration > 0`)
+   - Calls `beginCapture()`:
+     - Creates `VideoWriter` → calls `writer.setup()`
+     - Configures + starts `ScreenCaptureManager` (display or window)
+     - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
+     - Starts `AudioManager`, hooks `onMicBuffer → videoWriter.appendMicAudio()`
+     - Sets `state = .recording`, starts elapsed timer
+6. `SourcePickerController` calls `coordinator.showOverlays()` → ControlPanel, CameraBubble, AnnotationOverlay appear.
+7. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
+8. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
+
+---
+
+## Pause/Resume (true SCStream stop/restart)
+
+**Pause:**
+1. `state = .paused`, elapsed timer stopped.
+2. `videoWriter.pause(at: now)` — records pause start time.
+3. `screenManager.pauseCapture()` — calls `stream.stopCapture()`, sets `stream = nil` (retains `savedFilter`).
+4. `cameraManager.stopCapture()` + `audioManager.stopCapture()`.
+
+**Resume:**
+1. `state = .recording`, elapsed timer restarted.
+2. `screenManager.resumeCapture()` — recreates SCStream from `savedFilter`, re-adds outputs, calls `startCapture()`.
+3. `cameraManager.startCapture()` + `audioManager.startCapture()`.
+4. `videoWriter.resume(at: now)` — computes `totalPausedDuration`, subtracts from all future PTS values so the output file appears seamless.
+
+---
+
+## Swift 6 Concurrency Decisions
+
+This is important to understand before modifying capture/write code.
+
+### The problem
+`CMSampleBuffer` and `CVPixelBuffer` are not `Sendable`. SCStream and AVFoundation call their output delegates on background queues. `RecordingEngine` is `@MainActor`. Naively dispatching buffers to `@MainActor` via `Task { @MainActor in ... }` violates Swift 6 strict concurrency.
+
+### The solution
+**VideoWriter is not `@MainActor`.** It is called directly from capture queues, which is how `AVAssetWriter` (with `expectsMediaDataInRealTime = true`) is designed to be used.
+
+Key annotations:
+| Symbol | Why |
+|---|---|
+| `nonisolated(unsafe) var videoWriter` on `RecordingEngine` | Read from `nonisolated` delegate methods on capture queue |
+| `nonisolated(unsafe) var state` on `RecordingEngine` | Read from capture queue as a best-effort guard (written only on MainActor) |
+| `nonisolated(unsafe) var delegate` on `ScreenCaptureManager` | Accessed from `nonisolated` SCStreamOutput callback |
+| `nonisolated(unsafe) var onFrame` on `CameraManager` | Set on MainActor, called from AVFoundation capture queue |
+| `nonisolated(unsafe) var onMicBuffer` on `AudioManager` | Same as above |
+| `nonisolated(unsafe) var eventTap` on `CursorTracker` | Accessed from `deinit` (non-isolated context) |
+| `ScreenCaptureManagerDelegate` is non-isolated | Its methods are called on background queues; conforming types use `nonisolated func` |
+
+**Do not add `Task { @MainActor in ... }` wrappers around sample buffer callbacks.** This will cause Swift 6 sendability errors. Keep buffer routing synchronous on the capture queue.
+
+---
+
+## SwiftUI Observation Pattern
+
+All `@Observable` classes — **do not mix with `ObservableObject`**.
+
+| Pattern | Correct | Wrong |
+|---|---|---|
+| Inject into view | `.environment(obj)` | `.environmentObject(obj)` |
+| Read in view | `@Environment(Engine.self) var engine` | `@EnvironmentObject var engine` |
+| Two-way binding | `@Bindable var settings: RecordingSettings` | `@ObservedObject var settings` |
+| Own in view | `@State var obj = MyClass()` | `@StateObject var obj` |
+
+`RecordingSettings` must be declared `var` (not `let`) on `RecordingEngine` so `@Bindable` can write through the keypath chain to nested properties like `engine.settings.mode`.
+
+---
+
+## Key Type Name: `RecordingShortcut`
+
+Our custom keyboard shortcut struct is named **`RecordingShortcut`** (not `KeyboardShortcut`). `KeyboardShortcut` is a SwiftUI built-in that would conflict. The container struct is `RecordingShortcuts` (plural). Both live in `RecordingSettings.swift`.
+
+---
+
+## Permissions
+
+| Permission | API | Required |
+|---|---|---|
+| Screen Recording | `SCShareableContent.excludingDesktopWindows` triggers TCC prompt | Yes |
+| Camera | `AVCaptureDevice.requestAccess(for: .video)` | Yes |
+| Microphone | `AVCaptureDevice.requestAccess(for: .audio)` | Yes |
+| Accessibility | `AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": false])` | Optional (cursor effects) |
+
+Note: use the raw string `"AXTrustedCheckOptionPrompt"` — using the `kAXTrustedCheckOptionPrompt` CFString constant triggers a Swift 6 concurrency warning about shared mutable state.
+
+---
+
+## Settings Persistence
+
+`RecordingSettings` persists to `UserDefaults` under key `"MoolRecordingSettings"` using a private `SettingsSnapshot: Codable` inner struct (needed because `@Observable` classes can't directly conform to `Codable`). Call `settings.save()` any time a setting changes. `RecordingSettings.init()` loads from defaults automatically.
+
+`selectedDisplayIndex` and `selectedWindowID` are **not** persisted (runtime-only).
+
+---
+
+## File Output
+
+- Default location: `~/Movies/Mool/`
+- Naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
+- Format: QuickTime `.mov`, H.264 video, AAC audio
+- Camera PiP: composited in software via CoreImage at write time (bottom-right, 22% of screen width, circular-ish crop)
+- Bitrates: 720p=5Mbps, 1080p=10Mbps, 4K=40Mbps
+
+---
+
+## Window Overlay Rules
+
+All overlay windows share these properties set at creation time:
+- `level = .floating`
+- `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]`
+- `isReleasedWhenClosed = false`
+
+The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-through). `AnnotationManager.isAnnotating` toggles this via the `overlayWindow` weak reference.
+
+The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
+
+---
+
+## Current State of Work
+
+### What's done (everything builds)
+- Full recording pipeline: screen (SCStream), camera (AVCaptureSession), mic (AVCaptureSession), system audio (SCStream), composited output (AVAssetWriter)
+- True pause/resume (SCStream stop + restart, PTS correction in VideoWriter)
+- All overlay windows (control panel HUD, camera bubble, annotation canvas, speaker notes)
+- Annotation tools: pen, eraser, highlighter, cursor highlight ring, click burst, spotlight
+- Source picker UI (mode card + display grid + window list)
+- Keyboard shortcut recorder widget (NSView-based, live capture)
+- Library view (AVPlayer preview, delete, rename, reveal in Finder)
+- Settings (Recording, Shortcuts, Storage, About tabs)
+- Permissions onboarding view
+- Menu bar with red pulsing icon during recording
+- Global keyboard shortcuts via `NSEvent.addGlobalMonitorForEvents`
+- Login-at-launch via `SMAppService`
+
+### Known gaps / next priorities
+1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has no images, only `Contents.json`. Add PNG assets at standard macOS sizes.
+2. **Display disconnect handling** — If the captured display goes to sleep or is disconnected, `SCStreamDelegate.stream(_:didStopWithError:)` fires. `RecordingEngine.screenCaptureManagerDidStop` calls `stopRecording()`, which is correct, but there's no user-facing error message explaining what happened.
+3. **Shortcut conflict detection** — `WindowCoordinator.handleGlobalKeyEvent` does no conflict checking. If the user sets a shortcut that macOS already uses, it silently fails.
+4. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
+5. **Countdown full-screen overlay** — The HUD shows a countdown number, but there's no full-screen countdown splash (like Loom's big number). `RecordingState.countdown(secondsRemaining:)` is published but only consumed by `ControlPanelView`.
+
+### Stretch / future features
+- Trim editor (in-app clip trimming via `AVAssetExportSession`)
+- Chapter markers (timestamp annotations written to file metadata)
+- MP4 export (re-encode via `AVAssetExportSession` with `.mp4` preset)
+- Automatic camera framing (Center Stage API or Vision face detection crop)
+- Markdown speaker notes
+- Hotkey to snap camera bubble to screen corners
+
+---
+
+## How to Add a New Feature (checklist)
+
+1. **After adding Swift files:** run `xcodegen generate`.
+2. **New `@Observable` class:** inject via `.environment(obj)` in the relevant `Scene` or `NSHostingView`. Read with `@Environment(MyClass.self)`.
+3. **New overlay window:** add it to `WindowCoordinator`, set `level = .floating` and `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]`.
+4. **New setting:** add a `var` to `RecordingSettings`, add it to `SettingsSnapshot`, update `save()` and `load()`.
+5. **New capture callback:** keep it `nonisolated`, call the writer or a `nonisolated(unsafe)` callback directly — do not dispatch to `@MainActor` with a sample buffer.
+6. **Update docs:** keep `TODO.md` current (`[x]` when done), update `ARCHITECTURE.md` if structure changes, update this file if decisions or patterns change.

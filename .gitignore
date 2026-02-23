@@ -1,0 +1,38 @@
+# ===== xcodegen =====
+# The .xcodeproj is generated from project.yml — never hand-edit, never commit.
+Mool.xcodeproj/
+
+# ===== Xcode =====
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.orig
+DerivedData/
+*.xcarchive
+*.xcresult
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ===== Swift Package Manager =====
+.build/
+.swiftpm/
+*.resolved
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ===== Editor / IDE =====
+*.swp
+*.swo
+*~
+.vscode/
+
+# ===== Claude Code =====
+.claude/
