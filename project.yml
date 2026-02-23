@@ -57,3 +57,42 @@ targets:
         NSAppleEventsUsageDescription: "Mool uses Apple Events to support automation."
         CFBundleURLTypes: []
         NSHumanReadableCopyright: "© 2024 Mool. All rights reserved."
+
+  MoolTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: MoolTests
+    dependencies:
+      - target: Mool
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mool.tests
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        ENABLE_HARDENED_RUNTIME: NO
+
+  MoolUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: MoolUITests
+    dependencies:
+      - target: Mool
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mool.uitests
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        TEST_TARGET_NAME: Mool
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        ENABLE_HARDENED_RUNTIME: NO
