@@ -13,10 +13,13 @@ protocol CameraManaging: AnyObject {
 
     var isMirrored: Bool { get set }
     var isRunning: Bool { get }
+    var selectedCameraUniqueID: String? { get }
 
     func setupSession() throws
     func startCapture()
     func stopCapture()
+    func availableCameras() -> [AVCaptureDevice]
+    func switchToCamera(_ device: AVCaptureDevice) throws
 
     /// Registers a closure to receive each camera frame (called on the capture queue).
     /// Pass nil to clear the handler.

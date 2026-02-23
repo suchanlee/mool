@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreMedia
 
 // MARK: - AudioManaging
@@ -7,10 +8,13 @@ import CoreMedia
 @MainActor
 protocol AudioManaging: AnyObject {
     var isRunning: Bool { get }
+    var selectedMicrophoneUniqueID: String? { get }
 
     func setupSession() throws
     func startCapture()
     func stopCapture()
+    func availableMicrophones() -> [AVCaptureDevice]
+    func switchToMicrophone(_ device: AVCaptureDevice) throws
 
     /// Registers a closure to receive each microphone sample buffer (called on the capture queue).
     /// Pass nil to clear the handler.

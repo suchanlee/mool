@@ -96,6 +96,8 @@ final class RecordingSettings {
     var shortcuts: RecordingShortcuts = .init()
     var storagePath: URL = RecordingSettings.defaultStoragePath
     var launchAtLogin: Bool = false
+    var selectedCameraUniqueID: String? = nil
+    var selectedMicrophoneUniqueID: String? = nil
 
     // Runtime-only (not persisted)
     var selectedDisplayIndex: Int = 0
@@ -123,7 +125,9 @@ final class RecordingSettings {
             captureMicrophone: captureMicrophone,
             shortcuts: shortcuts,
             storagePath: storagePath,
-            launchAtLogin: launchAtLogin
+            launchAtLogin: launchAtLogin,
+            selectedCameraUniqueID: selectedCameraUniqueID,
+            selectedMicrophoneUniqueID: selectedMicrophoneUniqueID
         )
         if let data = try? encoder.encode(snapshot) {
             UserDefaults.standard.set(data, forKey: Self.defaultsKey)
@@ -143,6 +147,8 @@ final class RecordingSettings {
         shortcuts = snapshot.shortcuts
         storagePath = snapshot.storagePath
         launchAtLogin = snapshot.launchAtLogin
+        selectedCameraUniqueID = snapshot.selectedCameraUniqueID
+        selectedMicrophoneUniqueID = snapshot.selectedMicrophoneUniqueID
     }
 
     // Codable snapshot to avoid @Observable codability issues
@@ -156,5 +162,7 @@ final class RecordingSettings {
         var shortcuts: RecordingShortcuts
         var storagePath: URL
         var launchAtLogin: Bool
+        var selectedCameraUniqueID: String?
+        var selectedMicrophoneUniqueID: String?
     }
 }

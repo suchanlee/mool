@@ -83,6 +83,17 @@ final class RecordingSettingsTests: XCTestCase {
         XCTAssertEqual(RecordingSettings().storagePath, testURL)
     }
 
+    func testSaveAndLoad_selectedInputDeviceIDs() {
+        let s = RecordingSettings()
+        s.selectedCameraUniqueID = "camera-123"
+        s.selectedMicrophoneUniqueID = "mic-456"
+        s.save()
+
+        let loaded = RecordingSettings()
+        XCTAssertEqual(loaded.selectedCameraUniqueID, "camera-123")
+        XCTAssertEqual(loaded.selectedMicrophoneUniqueID, "mic-456")
+    }
+
     // MARK: - Runtime-only properties are not persisted
 
     func testRuntimePropertiesNotPersisted() {

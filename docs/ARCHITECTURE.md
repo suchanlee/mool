@@ -13,7 +13,7 @@ Mool is a local-only macOS screen recording app inspired by Loom. All recordings
 | Screen capture | ScreenCaptureKit (SCStream) — macOS 12.3+ |
 | Camera / mic | AVFoundation (AVCaptureSession) |
 | Video encoding | AVAssetWriter (H.264 video, AAC audio) |
-| Reactive state | Combine + @Observable |
+| Reactive state | @Observable (Observation framework) |
 | Build system | xcodegen → Xcode project |
 | Minimum deployment | macOS 14.0 (required for `@Observable`) |
 
@@ -24,7 +24,7 @@ Mool is a local-only macOS screen recording app inspired by Loom. All recordings
 ```
 MoolApp (SwiftUI App)
   └─ AppDelegate (NSApplicationDelegate)
-       ├─ MenuBarController         ← NSStatusItem + menu
+       ├─ MenuBarController         ← NSStatusItem + quick recorder popover/menu
        ├─ RecordingEngine           ← orchestrates all capture
        │    ├─ ScreenCaptureManager  (ScreenCaptureKit / SCStream)
        │    ├─ CameraManager         (AVCaptureSession)
@@ -38,7 +38,8 @@ MoolApp (SwiftUI App)
             ├─ ControlPanelWindow    (floating HUD)
             ├─ CameraBubbleWindow    (draggable cam preview)
             ├─ AnnotationOverlayWindow (full-screen draw layer)
-            └─ SpeakerNotesWindow    (floating notes)
+            ├─ SpeakerNotesWindow    (floating notes)
+            └─ CountdownOverlayWindow (full-screen pre-roll splash)
 ```
 
 ---
@@ -72,14 +73,16 @@ Mool/
 │   └── CaptureSource.swift        SCDisplay / SCWindow / SCRunningApp wrappers
 ├── UI/
 │   ├── MenuBar/
-│   │   └── MenuBarController.swift NSStatusItem + popover/menu
+│   │   ├── MenuBarController.swift NSStatusItem + quick recorder popover/context menu
+│   │   └── QuickRecorderPopoverView.swift Loom-style source/camera/audio quick controls
 │   ├── Overlays/
 │   │   ├── ControlPanelWindow.swift    NSPanel (floating, non-activating)
 │   │   ├── ControlPanelView.swift      SwiftUI HUD: record/pause/stop/timer
 │   │   ├── CameraBubbleWindow.swift    Borderless NSPanel, draggable
 │   │   ├── CameraBubbleView.swift      SwiftUI cam preview with resize handle
 │   │   ├── AnnotationOverlayWindow.swift  Full-screen NSWindow, drawing layer
-│   │   └── SpeakerNotesWindow.swift    Floating notes NSPanel
+│   │   ├── SpeakerNotesWindow.swift    Floating notes NSPanel
+│   │   └── CountdownOverlayWindow.swift Full-screen countdown splash
 │   ├── Library/
 │   │   └── LibraryView.swift       Browse + play local recordings
 │   ├── Settings/
@@ -97,10 +100,13 @@ Mool/
 ## Recording Pipeline
 
 ```
-User hits Record
+User clicks menu bar status item
       │
-      ▼
-RecordingEngine.startRecording()
+      ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
+      └─ Right click → context menu
+                 │
+                 ▼
+        RecordingEngine.startRecording()
       │
       ├─ ScreenCaptureManager.startStream()
       │       SCStream → CMSampleBuffer (video frames)
@@ -117,6 +123,15 @@ RecordingEngine.startRecording()
               Receives camera frames → composites as PiP overlay
               Receives audio → writes AAC track
               On stop → finishes writing → emits file URL
+
+Countdown behavior:
+- `RecordingEngine.state = .countdown(secondsRemaining:)` before capture starts.
+- `WindowCoordinator` mirrors this state into per-display `CountdownOverlayWindow` instances.
+
+Disconnect behavior:
+- `ScreenCaptureManagerDidStop` triggers `RecordingEngine.stopRecording()`.
+- `RecordingEngine` stores a runtime error message.
+- `MenuBarController` polls and shows an `NSAlert` to explain the stop reason.
 ```
 
 ### Compositing Strategy
@@ -142,6 +157,7 @@ All overlay windows share these properties:
 | CameraBubbleWindow | NSPanel, borderless | Draggable, resizable corner handle |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |
+| CountdownOverlayWindow | NSWindow, borderless | Full-screen dim + large pre-roll countdown number |
 
 ---
 
@@ -222,7 +238,7 @@ Implemented via `NSEvent.addGlobalMonitorForEvents(matching: .keyDown)`.
 
 4. **SwiftUI inside NSPanel** — Overlay panels host `NSHostingView<SomeSwiftUIView>` as their content view, combining AppKit window management with SwiftUI's reactive UI.
 
-5. **Combine + @Observable** — `RecordingEngine` is `@Observable`; child managers publish via Combine subjects where fine-grained control is needed (e.g., per-frame camera preview).
+5. **Observation-first state** — `RecordingEngine` and settings are `@Observable`; AppKit controllers poll/update UI state with timers where direct SwiftUI observation is not available (menu bar and overlay windows).
 
 6. **Local only** — No networking stack, no auth, no telemetry. All data stays in `~/Movies/Mool/`.
 

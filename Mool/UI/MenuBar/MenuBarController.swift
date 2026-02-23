@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import Combine
 
 // MARK: - Menu Bar Controller
 
@@ -10,7 +9,8 @@ final class MenuBarController {
 
     private var statusItem: NSStatusItem?
     private var statusBarMenu: NSMenu?
-    private var cancellables: Set<AnyCancellable> = []
+    private let quickRecorderPopover = NSPopover()
+    private var stateObserverTimer: Timer?
 
     private unowned let recordingEngine: RecordingEngine
     private unowned let windowCoordinator: WindowCoordinator
@@ -44,6 +44,8 @@ final class MenuBarController {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
+        quickRecorderPopover.behavior = .transient
+        quickRecorderPopover.animates = true
         buildMenu()
     }
 
@@ -75,18 +77,16 @@ final class MenuBarController {
         quitItem.identifier = NSUserInterfaceItemIdentifier("status.quit")
 
         statusBarMenu = menu
-        statusItem?.menu = menu
     }
 
     // MARK: - State observation
 
     private func observeRecordingState() {
-        // Use withObservationTracking to watch @Observable state
-        // We poll via Timer as a simple approach for menu updates
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        stateObserverTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.updateMenuState()
                 self?.updateStatusIcon()
+                self?.showPendingRuntimeErrorIfNeeded()
             }
         }
     }
@@ -96,8 +96,9 @@ final class MenuBarController {
         let isIdle = recordingEngine.state == .idle
         let isRecording = recordingEngine.state == .recording
 
-        menu.items[0].isEnabled = isIdle
-        menu.items[1].isEnabled = isRecording || recordingEngine.state == .paused
+        menu.items.first(where: { $0.identifier == NSUserInterfaceItemIdentifier("status.startRecording") })?.isEnabled = isIdle
+        menu.items.first(where: { $0.identifier == NSUserInterfaceItemIdentifier("status.stopRecording") })?.isEnabled =
+        isRecording || recordingEngine.state == .paused
     }
 
     private func updateStatusIcon() {
@@ -106,7 +107,6 @@ final class MenuBarController {
         case .recording:
             button.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
             button.image?.isTemplate = false
-            // Tint red
             if let img = button.image {
                 button.image = img.tinted(with: .systemRed)
             }
@@ -119,15 +119,33 @@ final class MenuBarController {
     // MARK: - Actions
 
     @objc private func statusBarButtonClicked(_ sender: NSStatusBarButton) {
-        // The menu is already set on statusItem; clicking opens it automatically.
-        // This action handler is reserved for future popover support.
+        guard let event = NSApp.currentEvent else {
+            toggleQuickRecorderPopover()
+            return
+        }
+
+        switch event.type {
+        case .rightMouseUp:
+            showContextMenu()
+        default:
+            toggleQuickRecorderPopover()
+        }
     }
 
     @objc private func startRecording() {
-        windowCoordinator.showSourcePicker()
+        quickRecorderPopover.performClose(nil)
+        Task {
+            do {
+                try await recordingEngine.startRecording()
+                windowCoordinator.showOverlays()
+            } catch {
+                showError(error)
+            }
+        }
     }
 
     @objc private func stopRecording() {
+        quickRecorderPopover.performClose(nil)
         Task {
             await recordingEngine.stopRecording()
             windowCoordinator.hideOverlays()
@@ -135,25 +153,57 @@ final class MenuBarController {
     }
 
     @objc private func openLibrary() {
+        quickRecorderPopover.performClose(nil)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        // Open the library window
         if let window = NSApp.windows.first(where: { $0.title == "Library" }) {
             window.makeKeyAndOrderFront(nil)
         } else {
-            // Open via SwiftUI window group
-            let selector = Selector(("showLibraryWindow:"))
-            print("[UITest] menu showLibraryWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: self)))
-            NSApp.sendAction(selector, to: nil, from: self)
+            NSApp.sendAction(Selector(("showLibraryWindow:")), to: nil, from: self)
         }
     }
 
     @objc private func openSettings() {
+        quickRecorderPopover.performClose(nil)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        let selector = Selector(("showSettingsWindow:"))
-        print("[UITest] menu showSettingsWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: nil)))
-        NSApp.sendAction(selector, to: nil, from: nil)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
+
+    private func showContextMenu() {
+        guard let menu = statusBarMenu, let item = statusItem else { return }
+        item.menu = menu
+        item.button?.performClick(nil)
+        item.menu = nil
+    }
+
+    private func toggleQuickRecorderPopover() {
+        guard let button = statusItem?.button else { return }
+
+        if quickRecorderPopover.isShown {
+            quickRecorderPopover.performClose(nil)
+            return
+        }
+
+        let view = QuickRecorderPopoverView(
+            onStartRecording: { [weak self] in self?.startRecording() },
+            onOpenLibrary: { [weak self] in self?.openLibrary() },
+            onOpenSettings: { [weak self] in self?.openSettings() }
+        )
+        .environment(recordingEngine)
+
+        quickRecorderPopover.contentViewController = NSHostingController(rootView: view)
+        quickRecorderPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+
+    private func showPendingRuntimeErrorIfNeeded() {
+        guard let message = recordingEngine.consumeRuntimeErrorMessage() else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Recording Stopped"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.runModal()
     }
 
     private func showError(_ error: Error) {

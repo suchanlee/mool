@@ -9,25 +9,32 @@ import CoreMedia
 final class AudioManager: NSObject, AudioManaging {
 
     private let session = AVCaptureSession()
+    private var audioInput: AVCaptureDeviceInput?
     private var audioOutput: AVCaptureAudioDataOutput?
+    private var isConfigured = false
     private let outputQueue = DispatchQueue(label: "com.mool.audio.output", qos: .userInteractive)
 
     /// Called from capture queue — must be thread-safe.
     nonisolated(unsafe) var onMicBuffer: ((CMSampleBuffer) -> Void)?
     private(set) var isRunning: Bool = false
+    private(set) var selectedMicrophoneUniqueID: String?
 
     // MARK: - Setup
 
     func setupSession() throws {
+        guard !isConfigured else { return }
+
         session.beginConfiguration()
 
-        guard let mic = AVCaptureDevice.default(for: .audio) else {
+        guard let mic = preferredMicrophone() ?? AVCaptureDevice.default(for: .audio) else {
             throw AudioError.noDeviceFound
         }
+        selectedMicrophoneUniqueID = mic.uniqueID
 
         let input = try AVCaptureDeviceInput(device: mic)
         guard session.canAddInput(input) else { throw AudioError.cannotAddInput }
         session.addInput(input)
+        audioInput = input
 
         let output = AVCaptureAudioDataOutput()
         output.setSampleBufferDelegate(self, queue: outputQueue)
@@ -36,6 +43,7 @@ final class AudioManager: NSObject, AudioManaging {
         audioOutput = output
 
         session.commitConfiguration()
+        isConfigured = true
     }
 
     // MARK: - Control
@@ -54,6 +62,37 @@ final class AudioManager: NSObject, AudioManaging {
 
     func setMicHandler(_ handler: ((CMSampleBuffer) -> Void)?) {
         onMicBuffer = handler
+    }
+
+    // MARK: - Device switching
+
+    func availableMicrophones() -> [AVCaptureDevice] {
+        AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone, .external],
+            mediaType: .audio,
+            position: .unspecified
+        ).devices
+    }
+
+    func switchToMicrophone(_ device: AVCaptureDevice) throws {
+        selectedMicrophoneUniqueID = device.uniqueID
+        guard isConfigured else { return }
+
+        session.beginConfiguration()
+        if let existing = audioInput {
+            session.removeInput(existing)
+        }
+
+        let input = try AVCaptureDeviceInput(device: device)
+        guard session.canAddInput(input) else { throw AudioError.cannotAddInput }
+        session.addInput(input)
+        audioInput = input
+        session.commitConfiguration()
+    }
+
+    private func preferredMicrophone() -> AVCaptureDevice? {
+        guard let selectedMicrophoneUniqueID else { return nil }
+        return availableMicrophones().first(where: { $0.uniqueID == selectedMicrophoneUniqueID })
     }
 }
 

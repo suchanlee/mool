@@ -13,6 +13,7 @@ final class CameraManager: NSObject, CameraManaging {
     private let session = AVCaptureSession()
     private var videoOutput: AVCaptureVideoDataOutput?
     private var videoInput: AVCaptureDeviceInput?
+    private var isConfigured = false
     private let outputQueue = DispatchQueue(label: "com.mool.camera.output", qos: .userInteractive)
 
     /// Called from the capture queue — must be thread-safe.
@@ -23,16 +24,21 @@ final class CameraManager: NSObject, CameraManaging {
     }
 
     private(set) var isRunning: Bool = false
+    private(set) var selectedCameraUniqueID: String?
 
     // MARK: - Setup
 
     func setupSession() throws {
+        guard !isConfigured else { return }
+
         session.beginConfiguration()
         session.sessionPreset = .high
 
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
+        guard let device = preferredCameraDevice() ??
+                           AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
                            AVCaptureDevice.default(for: .video)
         else { throw CameraError.noDeviceFound }
+        selectedCameraUniqueID = device.uniqueID
 
         let input = try AVCaptureDeviceInput(device: device)
         guard session.canAddInput(input) else { throw CameraError.cannotAddInput }
@@ -60,6 +66,7 @@ final class CameraManager: NSObject, CameraManaging {
         previewLayer.videoGravity = .resizeAspectFill
 
         session.commitConfiguration()
+        isConfigured = true
     }
 
     // MARK: - Control
@@ -92,6 +99,9 @@ final class CameraManager: NSObject, CameraManaging {
     }
 
     func switchToCamera(_ device: AVCaptureDevice) throws {
+        selectedCameraUniqueID = device.uniqueID
+        guard isConfigured else { return }
+
         session.beginConfiguration()
         if let existing = videoInput {
             session.removeInput(existing)
@@ -111,6 +121,11 @@ final class CameraManager: NSObject, CameraManaging {
         previewLayer.transform = isMirrored
             ? CATransform3DMakeScale(-1, 1, 1)
             : CATransform3DIdentity
+    }
+
+    private func preferredCameraDevice() -> AVCaptureDevice? {
+        guard let selectedCameraUniqueID else { return nil }
+        return availableCameras().first(where: { $0.uniqueID == selectedCameraUniqueID })
     }
 }
 

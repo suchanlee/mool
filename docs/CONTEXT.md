@@ -39,7 +39,7 @@ mool/
 │   ├── CONTEXT.md          ← this file
 │   ├── ARCHITECTURE.md     Full system design, data flows, window architecture
 │   └── TODO.md             Task tracking with per-item status
-└── Mool/                   All Swift source (28 files)
+└── Mool/                   All Swift source
     ├── App/
     │   ├── MoolApp.swift               @main SwiftUI entry; WindowGroup for Library + Settings
     │   └── AppDelegate.swift           NSApplicationDelegate; owns all singletons
@@ -64,7 +64,8 @@ mool/
     └── UI/
         ├── WindowCoordinator.swift     Owns all overlay NSPanels; handles global keyboard shortcuts
         ├── MenuBar/
-        │   └── MenuBarController.swift NSStatusItem; icon pulses red while recording
+        │   ├── MenuBarController.swift NSStatusItem; left-click quick recorder, right-click context menu
+        │   └── QuickRecorderPopoverView.swift  Loom-style source/camera/audio quick controls
         ├── SourcePicker/
         │   ├── SourcePickerView.swift  Pre-recording SwiftUI sheet (mode/display/window/quality)
         │   └── SourcePickerController.swift  Presents SourcePickerView as NSWindow
@@ -74,7 +75,8 @@ mool/
         │   ├── CameraBubbleWindow.swift    Borderless NSPanel; draggable
         │   ├── CameraBubbleView.swift      Circular cam preview + corner resize handle
         │   ├── AnnotationOverlayWindow.swift  Full-screen transparent NSWindow for drawing
-        │   └── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
+        │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
+        │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
         ├── Library/
         │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview; delete/rename/reveal
         ├── Settings/
@@ -118,11 +120,13 @@ AppDelegate
 
 ## Recording Flow (step by step)
 
-1. User clicks **Start Recording** in the menu bar (or presses ⌘⇧R).
-2. `MenuBarController` → `WindowCoordinator.showSourcePicker()` → `SourcePickerController.show()`.
-3. `SourcePickerView` appears: user picks mode, display/window, quality, audio options.
-4. User clicks **Record** → `SourcePickerController.startRecording()` → `engine.startRecording()`.
-5. `RecordingEngine.startRecording()`:
+1. User clicks the menu bar item (or presses ⌘⇧R).
+2. Entry paths:
+   - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
+   - Right click: `MenuBarController` opens context menu with actions.
+   - Keyboard shortcut: `WindowCoordinator.showSourcePicker()` opens full source picker.
+3. User starts recording from quick recorder or source picker.
+4. `RecordingEngine.startRecording()`:
    - Refreshes `availableSources` (SCShareableContent enumeration)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
@@ -131,9 +135,10 @@ AppDelegate
      - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
      - Starts `AudioManager`, hooks `onMicBuffer → videoWriter.appendMicAudio()`
      - Sets `state = .recording`, starts elapsed timer
-6. `SourcePickerController` calls `coordinator.showOverlays()` → ControlPanel, CameraBubble, AnnotationOverlay appear.
-7. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
-8. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
+5. `WindowCoordinator` shows recording overlays; during countdown it also shows a full-screen `CountdownOverlayWindow` per display.
+6. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
+7. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
+8. If capture stops unexpectedly (display/window unavailable), `RecordingEngine` stops recording and exposes a runtime error message consumed by `MenuBarController` for a user-facing alert.
 
 ---
 
@@ -216,7 +221,7 @@ Note: use the raw string `"AXTrustedCheckOptionPrompt"` — using the `kAXTruste
 
 `RecordingSettings` persists to `UserDefaults` under key `"MoolRecordingSettings"` using a private `SettingsSnapshot: Codable` inner struct (needed because `@Observable` classes can't directly conform to `Codable`). Call `settings.save()` any time a setting changes. `RecordingSettings.init()` loads from defaults automatically.
 
-`selectedDisplayIndex` and `selectedWindowID` are **not** persisted (runtime-only).
+`selectedDisplayIndex` and `selectedWindowID` are **not** persisted (runtime-only). Selected input device IDs (`selectedCameraUniqueID`, `selectedMicrophoneUniqueID`) are persisted.
 
 ---
 
@@ -241,6 +246,8 @@ The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-th
 
 The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
 
+The **CountdownOverlayWindow** is borderless, click-through, and shown on each connected display while `RecordingEngine.state` is `.countdown`.
+
 ---
 
 ## Current State of Work
@@ -251,11 +258,15 @@ The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its
 - All overlay windows (control panel HUD, camera bubble, annotation canvas, speaker notes)
 - Annotation tools: pen, eraser, highlighter, cursor highlight ring, click burst, spotlight
 - Source picker UI (mode card + display grid + window list)
+- Menu bar quick recorder popover (left-click) with display/window, camera preview/device, microphone device, system audio controls
+- Right-click context menu preserved for library/settings/quit actions
 - Keyboard shortcut recorder widget (NSView-based, live capture)
 - Library view (AVPlayer preview, delete, rename, reveal in Finder)
 - Settings (Recording, Shortcuts, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording
+- Full-screen countdown overlay on all displays during pre-roll
+- User-facing runtime alert when selected display/window source disappears mid-recording
 - Global keyboard shortcuts via `NSEvent.addGlobalMonitorForEvents`
 - Login-at-launch via `SMAppService`
 - Testing infrastructure:
@@ -267,11 +278,9 @@ The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its
 
 ### Known gaps / next priorities
 1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has no images, only `Contents.json`. Add PNG assets at standard macOS sizes.
-2. **Display disconnect handling** — If the captured display goes to sleep or is disconnected, `SCStreamDelegate.stream(_:didStopWithError:)` fires. `RecordingEngine.screenCaptureManagerDidStop` calls `stopRecording()`, which is correct, but there's no user-facing error message explaining what happened.
-3. **Shortcut conflict detection** — `WindowCoordinator.handleGlobalKeyEvent` does no conflict checking. If the user sets a shortcut that macOS already uses, it silently fails.
-4. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
-5. **Countdown full-screen overlay** — The HUD shows a countdown number, but there's no full-screen countdown splash (like Loom's big number). `RecordingState.countdown(secondsRemaining:)` is published but only consumed by `ControlPanelView`.
-6. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and ambiguous menu item lookup for `Settings…`.
+2. **Shortcut conflict detection** — `WindowCoordinator.handleGlobalKeyEvent` does no conflict checking. If the user sets a shortcut that macOS already uses, it silently fails.
+3. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
+4. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and menu-interaction assumptions (left-click now opens quick recorder popover).
 
 ### Stretch / future features
 - Trim editor (in-app clip trimming via `AVAssetExportSession`)

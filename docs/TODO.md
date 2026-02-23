@@ -94,14 +94,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 
 ## Phase 10 — Polish & Edge Cases
 
-- [ ] Countdown timer overlay before recording starts (UI countdown in control panel exists; full-screen overlay TBD)
+- [x] Countdown timer overlay before recording starts (full-screen splash overlay)
 - [x] Menu bar icon animates during recording (red icon when recording)
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
 - [x] Multiple display support — display picker in source picker UI
 - [x] Window capture mode UI — window picker in source picker UI
 - [x] Camera-only mode — exposed via source picker mode selector
 - [x] Graceful handling of permission denial (PermissionsView guides user to System Settings)
-- [ ] Handle display sleep / disconnect during recording
+- [x] Handle display sleep / disconnect during recording (auto-stop + user-facing alert)
 - [ ] Keyboard shortcut conflict detection
 - [x] Recording file auto-named with timestamp
 
@@ -124,10 +124,9 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 
 1. **App Icon** — Placeholder assets only; need actual icon artwork
 2. **Accessibility Permission** — `CGEvent.tapCreate` with `.cgAnnotatedSessionEventTap` may need adjustment per macOS version
-3. **Display sleep / disconnect** — No graceful handling if the captured display disappears mid-recording
-4. **Shortcut conflict detection** — No warning when a user-set shortcut conflicts with system shortcuts
-5. **Camera resume gap** — On pause/resume, the camera AVCaptureSession is stopped/started; there may be a brief startup delay before the first frames arrive
-6. **UI test flakiness** — Some XCUITests intermittently fail due status item hit-testing and duplicate `Settings…` menu items in query scope
+3. **Shortcut conflict detection** — No warning when a user-set shortcut conflicts with system shortcuts
+4. **Camera resume gap** — On pause/resume, the camera AVCaptureSession is stopped/started; there may be a brief startup delay before the first frames arrive
+5. **UI test flakiness** — Some XCUITests intermittently fail due status item hit-testing and duplicate `Settings…` menu items in query scope
 
 ---
 

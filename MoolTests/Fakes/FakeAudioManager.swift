@@ -1,4 +1,5 @@
 import CoreMedia
+import AVFoundation
 @testable import Mool
 
 // MARK: - FakeAudioManager
@@ -9,12 +10,14 @@ import CoreMedia
 final class FakeAudioManager: AudioManaging {
 
     private(set) var isRunning: Bool = false
+    private(set) var selectedMicrophoneUniqueID: String?
 
     // MARK: - Recorded state
 
     var setupCallCount = 0
     var startCallCount = 0
     var stopCallCount = 0
+    var switchCallCount = 0
     var capturedMicHandler: ((CMSampleBuffer) -> Void)?
 
     // MARK: - Error injection
@@ -36,6 +39,15 @@ final class FakeAudioManager: AudioManaging {
     func stopCapture() {
         stopCallCount += 1
         isRunning = false
+    }
+
+    func availableMicrophones() -> [AVCaptureDevice] {
+        []
+    }
+
+    func switchToMicrophone(_ device: AVCaptureDevice) throws {
+        switchCallCount += 1
+        selectedMicrophoneUniqueID = device.uniqueID
     }
 
     func setMicHandler(_ handler: ((CMSampleBuffer) -> Void)?) {

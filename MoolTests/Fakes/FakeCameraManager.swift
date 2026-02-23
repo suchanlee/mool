@@ -15,12 +15,14 @@ final class FakeCameraManager: CameraManaging {
 
     var isMirrored: Bool = false
     private(set) var isRunning: Bool = false
+    private(set) var selectedCameraUniqueID: String?
 
     // MARK: - Recorded state
 
     var setupCallCount = 0
     var startCallCount = 0
     var stopCallCount = 0
+    var switchCallCount = 0
     var capturedFrameHandler: ((CVPixelBuffer, CMTime) -> Void)?
 
     // MARK: - Error injection
@@ -42,6 +44,15 @@ final class FakeCameraManager: CameraManaging {
     func stopCapture() {
         stopCallCount += 1
         isRunning = false
+    }
+
+    func availableCameras() -> [AVCaptureDevice] {
+        []
+    }
+
+    func switchToCamera(_ device: AVCaptureDevice) throws {
+        switchCallCount += 1
+        selectedCameraUniqueID = device.uniqueID
     }
 
     func setFrameHandler(_ handler: ((CVPixelBuffer, CMTime) -> Void)?) {

@@ -18,6 +18,7 @@ final class RecordingEngine {
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var currentSession: RecordingSession?
     private(set) var lastCompletedURL: URL?
+    private var runtimeErrorMessage: String?
 
     var settings = RecordingSettings()
     let availableSources = AvailableSources()
@@ -55,6 +56,7 @@ final class RecordingEngine {
 
     func startRecording() async throws {
         guard state == .idle else { return }
+        runtimeErrorMessage = nil
 
         // Refresh available sources
         await availableSources.refresh()
@@ -127,10 +129,97 @@ final class RecordingEngine {
             print("[RecordingEngine] Writer finish failed: \(error)")
         }
 
+        cameraManager.setFrameHandler(nil)
+        audioManager.setMicHandler(nil)
         videoWriter = nil
         currentSession = nil
         state = .idle
         elapsedTime = 0
+    }
+
+    func consumeRuntimeErrorMessage() -> String? {
+        defer { runtimeErrorMessage = nil }
+        return runtimeErrorMessage
+    }
+
+    func prepareQuickRecorderContext() async {
+        guard state == .idle else { return }
+        await availableSources.refresh()
+        syncCameraPreviewForCurrentSettings()
+    }
+
+    func teardownQuickRecorderContext() {
+        guard state == .idle else { return }
+        cameraManager.setFrameHandler(nil)
+        cameraManager.stopCapture()
+    }
+
+    func availableCameraDevices() -> [AVCaptureDevice] {
+        cameraManager.availableCameras()
+    }
+
+    func availableMicrophoneDevices() -> [AVCaptureDevice] {
+        audioManager.availableMicrophones()
+    }
+
+    func setCameraEnabled(_ enabled: Bool) {
+        if enabled {
+            if settings.mode == .screenOnly {
+                settings.mode = .screenAndCamera
+            }
+        } else {
+            if settings.mode == .screenAndCamera || settings.mode == .cameraOnly {
+                settings.mode = .screenOnly
+            }
+        }
+        settings.save()
+        syncCameraPreviewForCurrentSettings()
+    }
+
+    func selectCameraDevice(uniqueID: String?) {
+        settings.selectedCameraUniqueID = uniqueID
+        settings.save()
+
+        let device: AVCaptureDevice?
+        if let uniqueID {
+            device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID })
+        } else {
+            device = defaultCameraDevice()
+        }
+
+        guard let device else {
+            runtimeErrorMessage = "Selected camera is no longer available."
+            return
+        }
+
+        do {
+            try cameraManager.switchToCamera(device)
+        } catch {
+            runtimeErrorMessage = "Failed to switch camera: \(error.localizedDescription)"
+        }
+    }
+
+    func selectMicrophoneDevice(uniqueID: String?) {
+        settings.selectedMicrophoneUniqueID = uniqueID
+        settings.save()
+
+        let device: AVCaptureDevice?
+        if let uniqueID {
+            device = audioManager.availableMicrophones().first(where: { $0.uniqueID == uniqueID })
+        } else {
+            device = defaultMicrophoneDevice()
+        }
+
+        guard let device else {
+            runtimeErrorMessage = "Selected microphone is no longer available."
+            return
+        }
+
+        do {
+            try audioManager.switchToMicrophone(device)
+        } catch {
+            runtimeErrorMessage = "Failed to switch microphone: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Private
@@ -198,6 +287,10 @@ final class RecordingEngine {
             if !cameraManager.isRunning {
                 try cameraManager.setupSession()
             }
+            if let uniqueID = settings.selectedCameraUniqueID,
+               let device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID }) {
+                try? cameraManager.switchToCamera(device)
+            }
             cameraManager.isMirrored = settings.mirrorCamera
             cameraManager.startCapture()
 
@@ -210,6 +303,10 @@ final class RecordingEngine {
         // Start microphone
         if settings.captureMicrophone {
             try audioManager.setupSession()
+            if let uniqueID = settings.selectedMicrophoneUniqueID,
+               let device = audioManager.availableMicrophones().first(where: { $0.uniqueID == uniqueID }) {
+                try? audioManager.switchToMicrophone(device)
+            }
             audioManager.startCapture()
             audioManager.setMicHandler { [weak self] (buffer: CMSampleBuffer) in
                 self?.videoWriter?.appendMicAudio(buffer)
@@ -237,6 +334,41 @@ final class RecordingEngine {
             }
         }
     }
+
+    private func syncCameraPreviewForCurrentSettings() {
+        guard state == .idle else { return }
+
+        if settings.mode.includesCamera {
+            do {
+                try cameraManager.setupSession()
+                if let uniqueID = settings.selectedCameraUniqueID,
+                   let device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID }) {
+                    try cameraManager.switchToCamera(device)
+                }
+                cameraManager.isMirrored = settings.mirrorCamera
+                cameraManager.setFrameHandler(nil)
+                cameraManager.startCapture()
+            } catch {
+                runtimeErrorMessage = "Camera preview unavailable: \(error.localizedDescription)"
+            }
+        } else {
+            cameraManager.setFrameHandler(nil)
+            cameraManager.stopCapture()
+        }
+    }
+
+    private func defaultCameraDevice() -> AVCaptureDevice? {
+        let cameras = cameraManager.availableCameras()
+        return cameras.first(where: { $0.position == .front }) ??
+        AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
+        AVCaptureDevice.default(for: .video) ??
+        cameras.first
+    }
+
+    private func defaultMicrophoneDevice() -> AVCaptureDevice? {
+        let microphones = audioManager.availableMicrophones()
+        return AVCaptureDevice.default(for: .audio) ?? microphones.first
+    }
 }
 
 // MARK: - ScreenCaptureManagingDelegate
@@ -252,9 +384,14 @@ extension RecordingEngine: ScreenCaptureManagingDelegate {
     }
 
     nonisolated func screenCaptureManagerDidStop(error: Error?) {
-        if let error {
-            print("[RecordingEngine] Screen capture stopped unexpectedly: \(error)")
+        Task { @MainActor in
+            if let error {
+                print("[RecordingEngine] Screen capture stopped unexpectedly: \(error)")
+            }
+            if self.state == .recording || self.state == .paused {
+                self.runtimeErrorMessage = "Recording stopped because the selected screen source is no longer available."
+            }
+            await self.stopRecording()
         }
-        Task { @MainActor in await self.stopRecording() }
     }
 }

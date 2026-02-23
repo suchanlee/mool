@@ -16,7 +16,9 @@ final class WindowCoordinator {
     private var cameraBubbleWindow: CameraBubbleWindow?
     private var annotationOverlayWindow: AnnotationOverlayWindow?
     private var speakerNotesWindow: SpeakerNotesWindow?
+    private var countdownOverlayWindows: [CountdownOverlayWindow] = []
     private var sourcePickerController: SourcePickerController?
+    private var stateObserverTimer: Timer?
 
     // MARK: - Init
 
@@ -24,6 +26,7 @@ final class WindowCoordinator {
         self.recordingEngine = recordingEngine
         buildWindows()
         setupGlobalShortcuts()
+        startStateObservation()
     }
 
     // MARK: - Build
@@ -76,6 +79,7 @@ final class WindowCoordinator {
         cameraBubbleWindow?.orderOut(nil)
         annotationOverlayWindow?.orderOut(nil)
         speakerNotesWindow?.orderOut(nil)
+        hideCountdownOverlay()
         annotationManager.isAnnotating = false
         cursorTracker.stopTracking()
     }
@@ -110,6 +114,48 @@ final class WindowCoordinator {
             }
         }
         _ = settings  // reference to trigger observation in future
+    }
+
+    private func startStateObservation() {
+        stateObserverTimer?.invalidate()
+        stateObserverTimer = Timer.scheduledTimer(
+            timeInterval: 0.1,
+            target: self,
+            selector: #selector(handleStateObservationTick),
+            userInfo: nil,
+            repeats: true
+        )
+    }
+
+    @objc private func handleStateObservationTick() {
+        switch recordingEngine.state {
+        case .countdown(let seconds):
+            showCountdownOverlay(secondsRemaining: seconds)
+        default:
+            hideCountdownOverlay()
+        }
+    }
+
+    private func showCountdownOverlay(secondsRemaining: Int) {
+        let screens = NSScreen.screens
+
+        if countdownOverlayWindows.count != screens.count {
+            countdownOverlayWindows.forEach { $0.orderOut(nil) }
+            countdownOverlayWindows = screens.map { CountdownOverlayWindow(screen: $0, secondsRemaining: secondsRemaining) }
+        }
+
+        for overlay in countdownOverlayWindows {
+            overlay.update(secondsRemaining: secondsRemaining)
+            if !overlay.isVisible {
+                overlay.orderFrontRegardless()
+            }
+        }
+    }
+
+    private func hideCountdownOverlay() {
+        for overlay in countdownOverlayWindows where overlay.isVisible {
+            overlay.orderOut(nil)
+        }
     }
 
     private func handleGlobalKeyEvent(_ event: NSEvent) {
