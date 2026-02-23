@@ -34,6 +34,10 @@ xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' bu
 mool/
 ├── README.md               User-facing build & usage guide
 ├── project.yml             xcodegen spec — source of truth for the Xcode project
+├── .swiftformat            SwiftFormat configuration
+├── .swiftlint.yml          SwiftLint configuration
+├── .githooks/pre-commit    Repo-managed git pre-commit hook
+├── scripts/                Dev scripts (hook install + quality checks)
 ├── Mool.xcodeproj/         Generated — do not hand-edit
 ├── docs/
 │   ├── CONTEXT.md          ← this file

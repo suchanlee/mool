@@ -1,0 +1,7 @@
+--swiftversion 6
+--indent 4
+--linebreaks lf
+--maxwidth 140
+--commas inline
+--stripunusedargs closure-only
+--exclude Mool.xcodeproj,.git,.githooks

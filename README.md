@@ -24,6 +24,8 @@ A local-only macOS screen recorder inspired by Loom. Record your screen, camera,
 | macOS | 14.0 Sonoma or later |
 | Xcode | 16.0 or later |
 | xcodegen | 2.x (`brew install xcodegen`) |
+| swiftformat | latest (`brew install swiftformat`) |
+| swiftlint | latest (`brew install swiftlint`) |
 | Swift | 6.0 |
 
 > **Note:** Screen Recording, Camera, Microphone, and optionally Accessibility permissions are required at runtime. The app will guide you through granting them on first launch.
@@ -177,6 +179,27 @@ Always run `xcodegen generate` after adding, removing, or moving Swift source fi
 - **`@Observable`** is used throughout (requires macOS 14+). Do not mix with `ObservableObject`.
 - **VideoWriter is not `@MainActor`** — it is called directly from AVFoundation/ScreenCaptureKit capture queues. This avoids per-frame actor hops and is the correct pattern for real-time AVAssetWriter usage.
 - **Overlay windows** use `NSPanel` with `.nonactivatingPanel` so they never steal keyboard focus from the app being recorded.
+
+### Swift format/lint pre-commit hooks
+
+Install tools:
+
+```bash
+brew install swiftformat swiftlint
+```
+
+Install repo hooks:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+Run checks manually:
+
+```bash
+./scripts/swift-quality-check.sh staged   # staged Swift files
+./scripts/swift-quality-check.sh all      # entire Swift codebase
+```
 
 ---
 

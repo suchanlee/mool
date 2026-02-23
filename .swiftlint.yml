@@ -1,0 +1,24 @@
+included:
+  - Mool
+  - MoolTests
+  - MoolUITests
+
+excluded:
+  - Mool.xcodeproj
+
+only_rules:
+  - colon
+  - comma
+  - control_statement
+  - empty_parameters
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - operator_usage_whitespace
+  - return_arrow_whitespace
+  - statement_position
+  - trailing_newline
+  - trailing_semicolon
+  - trailing_whitespace
+  - unused_optional_binding
+  - vertical_whitespace

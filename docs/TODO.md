@@ -12,6 +12,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Configure entitlements (screen recording, camera, mic, accessibility)
 - [x] Configure Info.plist (usage descriptions, LSUIElement, login item)
 - [x] Set up Assets.xcassets (app icon placeholder)
+- [x] Add SwiftFormat + SwiftLint pre-commit hook workflow
 
 ---
 
