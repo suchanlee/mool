@@ -1,5 +1,6 @@
 import AVFoundation
 import Combine
+import CoreGraphics
 import CoreMedia
 import Foundation
 import ScreenCaptureKit
@@ -12,8 +13,8 @@ import SwiftUI
 @Observable
 @MainActor
 final class RecordingEngine {
-
     // MARK: - Public state
+
     var state: RecordingState = .idle
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var currentSession: RecordingSession?
@@ -28,7 +29,7 @@ final class RecordingEngine {
     let cameraManager: any CameraManaging
     private let screenManager: any ScreenCaptureManaging
     private let audioManager: any AudioManaging
-    @ObservationIgnored nonisolated(unsafe) private var videoWriter: VideoWriter?
+    @ObservationIgnored private nonisolated(unsafe) var videoWriter: VideoWriter?
     private unowned let storageManager: StorageManager
 
     // MARK: - Timers
@@ -123,7 +124,7 @@ final class RecordingEngine {
             if let session = currentSession {
                 // Persist by refreshing storage
                 await storageManager.refresh()
-                _ = session  // retain reference
+                _ = session // retain reference
             }
         } catch {
             print("[RecordingEngine] Writer finish failed: \(error)")
@@ -180,11 +181,10 @@ final class RecordingEngine {
         settings.selectedCameraUniqueID = uniqueID
         settings.save()
 
-        let device: AVCaptureDevice?
-        if let uniqueID {
-            device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID })
+        let device: AVCaptureDevice? = if let uniqueID {
+            cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID })
         } else {
-            device = defaultCameraDevice()
+            defaultCameraDevice()
         }
 
         guard let device else {
@@ -203,11 +203,10 @@ final class RecordingEngine {
         settings.selectedMicrophoneUniqueID = uniqueID
         settings.save()
 
-        let device: AVCaptureDevice?
-        if let uniqueID {
-            device = audioManager.availableMicrophones().first(where: { $0.uniqueID == uniqueID })
+        let device: AVCaptureDevice? = if let uniqueID {
+            audioManager.availableMicrophones().first(where: { $0.uniqueID == uniqueID })
         } else {
-            device = defaultMicrophoneDevice()
+            defaultMicrophoneDevice()
         }
 
         guard let device else {
@@ -238,6 +237,19 @@ final class RecordingEngine {
     }
 
     private func beginCapture() async throws {
+        if settings.mode.includesScreen {
+            guard CGPreflightScreenCaptureAccess() else {
+                throw ScreenCaptureError.permissionDenied
+            }
+
+            let hasSelectedWindow = settings.selectedWindowID != nil &&
+                availableSources.windows.contains(where: { $0.windowID == settings.selectedWindowID })
+            let hasDisplay = !availableSources.displays.isEmpty
+            guard hasSelectedWindow || hasDisplay else {
+                throw RecordingEngineError.noAvailableScreenSource
+            }
+        }
+
         let outputURL = storageManager.newRecordingURL()
         var session = RecordingSession()
         session.fileURL = outputURL
@@ -263,21 +275,20 @@ final class RecordingEngine {
         if settings.mode.includesScreen {
             // Window capture takes priority over display capture when a window is selected
             if let windowID = settings.selectedWindowID,
-               let window = availableSources.windows.first(where: { $0.windowID == windowID }) {
+               let window = availableSources.windows.first(where: { $0.windowID == windowID })
+            {
                 try await screenManager.configureForWindow(
                     window,
                     captureSystemAudio: settings.captureSystemAudio
                 )
             } else {
                 let displays = availableSources.displays
-                if !displays.isEmpty {
-                    let idx = min(settings.selectedDisplayIndex, displays.count - 1)
-                    try await screenManager.configureForDisplay(
-                        displays[idx],
-                        excludingWindows: [],
-                        captureSystemAudio: settings.captureSystemAudio
-                    )
-                }
+                let idx = min(settings.selectedDisplayIndex, displays.count - 1)
+                try await screenManager.configureForDisplay(
+                    displays[idx],
+                    excludingWindows: [],
+                    captureSystemAudio: settings.captureSystemAudio
+                )
             }
             try await screenManager.startCapture()
         }
@@ -288,7 +299,8 @@ final class RecordingEngine {
                 try cameraManager.setupSession()
             }
             if let uniqueID = settings.selectedCameraUniqueID,
-               let device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID }) {
+               let device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID })
+            {
                 try? cameraManager.switchToCamera(device)
             }
             cameraManager.isMirrored = settings.mirrorCamera
@@ -304,7 +316,8 @@ final class RecordingEngine {
         if settings.captureMicrophone {
             try audioManager.setupSession()
             if let uniqueID = settings.selectedMicrophoneUniqueID,
-               let device = audioManager.availableMicrophones().first(where: { $0.uniqueID == uniqueID }) {
+               let device = audioManager.availableMicrophones().first(where: { $0.uniqueID == uniqueID })
+            {
                 try? audioManager.switchToMicrophone(device)
             }
             audioManager.startCapture()
@@ -342,7 +355,8 @@ final class RecordingEngine {
             do {
                 try cameraManager.setupSession()
                 if let uniqueID = settings.selectedCameraUniqueID,
-                   let device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID }) {
+                   let device = cameraManager.availableCameras().first(where: { $0.uniqueID == uniqueID })
+                {
                     try cameraManager.switchToCamera(device)
                 }
                 cameraManager.isMirrored = settings.mirrorCamera
@@ -360,9 +374,9 @@ final class RecordingEngine {
     private func defaultCameraDevice() -> AVCaptureDevice? {
         let cameras = cameraManager.availableCameras()
         return cameras.first(where: { $0.position == .front }) ??
-        AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
-        AVCaptureDevice.default(for: .video) ??
-        cameras.first
+            AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
+            AVCaptureDevice.default(for: .video) ??
+            cameras.first
     }
 
     private func defaultMicrophoneDevice() -> AVCaptureDevice? {
@@ -371,7 +385,19 @@ final class RecordingEngine {
     }
 }
 
+enum RecordingEngineError: LocalizedError {
+    case noAvailableScreenSource
+
+    var errorDescription: String? {
+        switch self {
+        case .noAvailableScreenSource:
+            "No display or window source is currently available."
+        }
+    }
+}
+
 // MARK: - ScreenCaptureManagingDelegate
+
 // These are called from capture queues (not @MainActor), so they must be nonisolated.
 
 extension RecordingEngine: ScreenCaptureManagingDelegate {
