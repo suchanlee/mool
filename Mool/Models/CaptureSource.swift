@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import ScreenCaptureKit
 
@@ -10,22 +11,22 @@ enum CaptureSource: Identifiable, Hashable {
 
     var id: String {
         switch self {
-        case .display(let d): "display-\(d.displayID)"
-        case .window(let w): "window-\(w.windowID)"
+        case let .display(d): "display-\(d.displayID)"
+        case let .window(w): "window-\(w.windowID)"
         }
     }
 
     var displayName: String {
         switch self {
-        case .display(let d): "Display \(d.displayID) (\(Int(d.width))×\(Int(d.height)))"
-        case .window(let w): w.title ?? w.owningApplication?.applicationName ?? "Unknown Window"
+        case let .display(d): "Display \(d.displayID) (\(Int(d.width))×\(Int(d.height)))"
+        case let .window(w): w.title ?? w.owningApplication?.applicationName ?? "Unknown Window"
         }
     }
 
     var appName: String? {
         switch self {
         case .display: nil
-        case .window(let w): w.owningApplication?.applicationName
+        case let .window(w): w.owningApplication?.applicationName
         }
     }
 
@@ -50,6 +51,13 @@ final class AvailableSources {
     func refresh() async {
         isLoading = true
         defer { isLoading = false }
+
+        guard CGPreflightScreenCaptureAccess() else {
+            displays = []
+            windows = []
+            return
+        }
+
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(
                 false,

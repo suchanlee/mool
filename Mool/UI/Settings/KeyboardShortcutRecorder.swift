@@ -32,7 +32,6 @@ struct KeyboardShortcutRecorder: NSViewRepresentable {
 // MARK: - ShortcutRecorderView (NSView)
 
 final class ShortcutRecorderView: NSView {
-
     var shortcut: RecordingShortcut = .init(key: "", modifiers: [])
     var isRecording: Bool = false {
         didSet { updateDisplay() }
@@ -130,7 +129,7 @@ final class ShortcutRecorderView: NSView {
         guard localMonitor == nil else { return }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKeyDown(event)
-            return nil  // consume the event
+            return nil // consume the event
         }
     }
 
@@ -155,8 +154,8 @@ final class ShortcutRecorderView: NSView {
         // Build our wrapper
         var modifiers = NSEventModifierFlagsWrapper()
         if flags.contains(.command) { modifiers.insert(.command) }
-        if flags.contains(.shift)   { modifiers.insert(.shift) }
-        if flags.contains(.option)  { modifiers.insert(.option) }
+        if flags.contains(.shift) { modifiers.insert(.shift) }
+        if flags.contains(.option) { modifiers.insert(.option) }
         if flags.contains(.control) { modifiers.insert(.control) }
 
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
@@ -166,15 +165,20 @@ final class ShortcutRecorderView: NSView {
         onShortcutCaptured?(captured)
     }
 
-    override var acceptsFirstResponder: Bool { true }
+    override var acceptsFirstResponder: Bool {
+        true
+    }
 
     override func resignFirstResponder() -> Bool {
         if isRecording { onCancelled?() }
         return super.resignFirstResponder()
     }
 
-    deinit {
-        stopLocalMonitor()
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow == nil {
+            stopLocalMonitor()
+        }
+        super.viewWillMove(toWindow: newWindow)
     }
 }
 

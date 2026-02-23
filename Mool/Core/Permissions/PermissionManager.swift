@@ -1,5 +1,6 @@
-import AVFoundation
 import AppKit
+import AVFoundation
+import CoreGraphics
 import ScreenCaptureKit
 
 // MARK: - Permission Status
@@ -15,7 +16,6 @@ enum PermissionStatus {
 @Observable
 @MainActor
 final class PermissionManager {
-
     var screenRecording: PermissionStatus = .notDetermined
     var camera: PermissionStatus = .notDetermined
     var microphone: PermissionStatus = .notDetermined
@@ -23,8 +23,8 @@ final class PermissionManager {
 
     var allGranted: Bool {
         screenRecording == .granted &&
-        camera == .granted &&
-        microphone == .granted
+            camera == .granted &&
+            microphone == .granted
     }
 
     // MARK: - Check all permissions
@@ -39,18 +39,16 @@ final class PermissionManager {
     // MARK: - Screen Recording
 
     func checkScreenRecording() async {
-        do {
-            // Attempting to enumerate shareable content triggers TCC prompt if needed
-            _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-            screenRecording = .granted
-        } catch {
-            screenRecording = .denied
-        }
+        screenRecording = CGPreflightScreenCaptureAccess() ? .granted : .denied
     }
 
     func requestScreenRecording() {
-        // Open System Settings → Privacy & Security → Screen Recording
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+        let granted = CGRequestScreenCaptureAccess()
+        screenRecording = granted ? .granted : .denied
+
+        if !granted,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        {
             NSWorkspace.shared.open(url)
         }
     }
