@@ -108,6 +108,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Redesign quick recorder popover with rounded row controls and remove top-right utility buttons
 - [x] Attach recording HUD below camera bubble and show it only while hovering the bubble/HUD area
 - [x] Remove square camera panel outline artifact and use subtle circular bubble shadow styling
+- [x] Ensure camera bubble shadow renders as circular-only (no rectangular backing artifact)
+- [x] Make recording HUD controls theme-adaptive for both light and dark appearance
 - [x] Replace drag-to-resize with HUD camera size presets (Small/Medium/Large)
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
 - [x] Multiple display support — display picker in source picker UI

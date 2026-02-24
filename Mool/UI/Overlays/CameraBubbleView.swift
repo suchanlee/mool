@@ -14,12 +14,20 @@ struct CameraBubbleView: View {
     @State private var hasStartedMoveDrag = false
 
     var body: some View {
-        CameraPreviewRepresentable(previewLayer: cameraManager.previewLayer)
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 1.5))
-            .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
-            .contentShape(Circle())
-            .simultaneousGesture(moveGesture)
+        ZStack {
+            // Explicit circular shadow avoids rectangular NSView shadow artifacts.
+            Circle()
+                .fill(Color.black.opacity(0.22))
+                .blur(radius: 16)
+                .offset(y: 8)
+                .padding(10)
+
+            CameraPreviewRepresentable(previewLayer: cameraManager.previewLayer)
+                .clipShape(Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 1.5))
+        }
+        .contentShape(Circle())
+        .simultaneousGesture(moveGesture)
     }
 
     private var moveGesture: some Gesture {
@@ -44,16 +52,25 @@ struct CameraBubbleView: View {
 struct CameraPreviewRepresentable: NSViewRepresentable {
     let previewLayer: AVCaptureVideoPreviewLayer
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+    func makeNSView(context: Context) -> CameraPreviewContainerView {
+        let view = CameraPreviewContainerView()
         view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
         previewLayer.frame = view.bounds
         previewLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         view.layer?.addSublayer(previewLayer)
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
+    func updateNSView(_ nsView: CameraPreviewContainerView, context: Context) {
         previewLayer.frame = nsView.bounds
+        nsView.layer?.masksToBounds = true
+        nsView.layer?.cornerRadius = min(nsView.bounds.width, nsView.bounds.height) / 2
+    }
+}
+
+final class CameraPreviewContainerView: NSView {
+    override var isOpaque: Bool {
+        false
     }
 }

@@ -5,6 +5,7 @@ import SwiftUI
 /// The main recording HUD shown as a floating overlay during recording.
 struct ControlPanelView: View {
     @Environment(RecordingEngine.self) private var engine
+    @Environment(\.colorScheme) private var colorScheme
     @Bindable var annotationManager: AnnotationManager
     let onStopRequested: () -> Void
     let onBubbleSizeSelected: (CameraBubbleSizePreset) -> Void
@@ -33,7 +34,7 @@ struct ControlPanelView: View {
             Text(formattedTime)
                 .monospacedDigit()
                 .font(.system(size: 15, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .frame(minWidth: 52)
 
             Divider().frame(height: 28)
@@ -44,7 +45,7 @@ struct ControlPanelView: View {
                 if engine.state == .recording || engine.state == .paused {
                     HUDButton(
                         icon: engine.state == .paused ? "play.fill" : "pause.fill",
-                        tint: .white
+                        tint: .primary
                     ) {
                         if engine.state == .paused {
                             engine.resumeRecording()
@@ -65,7 +66,7 @@ struct ControlPanelView: View {
                 // Annotate toggle
                 HUDButton(
                     icon: "pencil",
-                    tint: annotationManager.isAnnotating ? .yellow : .white,
+                    tint: annotationManager.isAnnotating ? .orange : .primary,
                     isActive: annotationManager.isAnnotating
                 ) {
                     annotationManager.isAnnotating.toggle()
@@ -86,10 +87,13 @@ struct ControlPanelView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                .strokeBorder(
+                    colorScheme == .dark ? .white.opacity(0.18) : .black.opacity(0.14),
+                    lineWidth: 0.5
+                )
         )
     }
 
@@ -123,7 +127,7 @@ struct ControlPanelView: View {
             ForEach(AnnotationTool.allCases, id: \.self) { tool in
                 HUDButton(
                     icon: tool.iconName,
-                    tint: annotationManager.selectedTool == tool ? .yellow : .white,
+                    tint: annotationManager.selectedTool == tool ? .orange : .primary,
                     isActive: annotationManager.selectedTool == tool
                 ) {
                     annotationManager.selectedTool = tool
@@ -137,7 +141,7 @@ struct ControlPanelView: View {
                 .frame(width: 24, height: 24)
 
             // Clear
-            HUDButton(icon: "trash", tint: .white) {
+            HUDButton(icon: "trash", tint: .primary) {
                 annotationManager.clearAll()
             }
         }
@@ -167,8 +171,9 @@ struct ControlPanelView: View {
 // MARK: - HUD Button
 
 struct HUDButton: View {
+    @Environment(\.colorScheme) private var colorScheme
     let icon: String
-    var tint: Color = .white
+    var tint: Color = .primary
     var isActive: Bool = false
     let action: () -> Void
 
@@ -180,8 +185,8 @@ struct HUDButton: View {
                 .frame(width: 30, height: 30)
                 .background(
                     isActive
-                        ? AnyShapeStyle(tint.opacity(0.2))
-                        : AnyShapeStyle(Color.white.opacity(0.08)),
+                        ? AnyShapeStyle(tint.opacity(colorScheme == .dark ? 0.25 : 0.2))
+                        : AnyShapeStyle(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.08)),
                     in: RoundedRectangle(cornerRadius: 7)
                 )
         }
@@ -190,6 +195,7 @@ struct HUDButton: View {
 }
 
 struct HUDLabelButton: View {
+    @Environment(\.colorScheme) private var colorScheme
     let label: String
     var isActive: Bool = false
     let action: () -> Void
@@ -198,12 +204,12 @@ struct HUDLabelButton: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isActive ? .yellow : .white)
+                .foregroundStyle(isActive ? .orange : .secondary)
                 .frame(width: 24, height: 24)
                 .background(
                     isActive
-                        ? AnyShapeStyle(Color.yellow.opacity(0.2))
-                        : AnyShapeStyle(Color.white.opacity(0.08)),
+                        ? AnyShapeStyle(Color.orange.opacity(colorScheme == .dark ? 0.24 : 0.2))
+                        : AnyShapeStyle(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.08)),
                     in: RoundedRectangle(cornerRadius: 6)
                 )
         }
