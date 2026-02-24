@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Foundation
 
 // MARK: - Saved Recording
@@ -28,13 +29,37 @@ struct SavedRecording: Identifiable, Hashable {
 @Observable
 @MainActor
 final class StorageManager {
-
     var recordings: [SavedRecording] = []
     var totalSize: Int64 = 0
     var storagePath: URL
 
+    enum TrimError: LocalizedError {
+        case exporterUnavailable
+        case unsupportedFileType
+        case invalidRange
+        case exportFailed(String)
+        case missingOutputURL
+
+        var errorDescription: String? {
+            switch self {
+            case .exporterUnavailable:
+                "Unable to create a trim export session."
+            case .unsupportedFileType:
+                "This recording format is not supported for trimming."
+            case .invalidRange:
+                "The selected trim range is invalid."
+            case let .exportFailed(message):
+                "Trim failed: \(message)"
+            case .missingOutputURL:
+                "Trim failed because the output file could not be created."
+            }
+        }
+    }
+
     init() {
-        let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first!
+        let defaultMovies = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+            .appendingPathComponent("Movies", isDirectory: true)
+        let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? defaultMovies
         storagePath = movies.appendingPathComponent("Mool", isDirectory: true)
         ensureDirectoryExists()
         Task { await refresh() }
@@ -69,6 +94,7 @@ final class StorageManager {
             let attrs = try? url.resourceValues(forKeys: [.creationDateKey, .fileSizeKey])
             let created = attrs?.creationDate ?? Date.distantPast
             let size = Int64(attrs?.fileSize ?? 0)
+            let duration = await loadDuration(for: url)
             total += size
 
             let recording = SavedRecording(
@@ -76,7 +102,7 @@ final class StorageManager {
                 url: url,
                 title: url.deletingPathExtension().lastPathComponent,
                 createdAt: created,
-                duration: nil,  // TODO: read from AVAsset if needed
+                duration: duration,
                 fileSize: size
             )
             result.append(recording)
@@ -112,6 +138,49 @@ final class StorageManager {
         NSPasteboard.general.setString(recording.url.path, forType: .string)
     }
 
+    func trim(_ recording: SavedRecording, from start: TimeInterval, to end: TimeInterval) async throws -> SavedRecording {
+        let asset = AVURLAsset(url: recording.url)
+        let durationTime = try await asset.load(.duration)
+        let totalDuration = max(durationTime.seconds, 0)
+        let clampedStart = max(0, min(start, totalDuration))
+        let clampedEnd = max(0, min(end, totalDuration))
+
+        guard clampedEnd - clampedStart >= 0.1 else {
+            throw TrimError.invalidRange
+        }
+
+        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else {
+            throw TrimError.exporterUnavailable
+        }
+
+        let outputURL = uniqueTrimmedURL(for: recording)
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
+
+        exporter.outputURL = outputURL
+        if exporter.supportedFileTypes.contains(.mov) {
+            exporter.outputFileType = .mov
+        } else if let firstType = exporter.supportedFileTypes.first {
+            exporter.outputFileType = firstType
+        } else {
+            throw TrimError.unsupportedFileType
+        }
+        exporter.shouldOptimizeForNetworkUse = false
+        exporter.timeRange = CMTimeRange(
+            start: CMTime(seconds: clampedStart, preferredTimescale: 600),
+            end: CMTime(seconds: clampedEnd, preferredTimescale: 600)
+        )
+
+        try await export(exporter: exporter)
+        await refresh()
+
+        guard let refreshed = recordings.first(where: { $0.url == outputURL }) else {
+            throw TrimError.missingOutputURL
+        }
+        return refreshed
+    }
+
     // MARK: - URL Generation
 
     func newRecordingURL() -> URL {
@@ -123,5 +192,66 @@ final class StorageManager {
 
     var formattedTotalSize: String {
         ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)
+    }
+
+    private func loadDuration(for url: URL) async -> TimeInterval? {
+        let asset = AVURLAsset(url: url)
+        do {
+            let duration = try await asset.load(.duration)
+            guard duration.isNumeric else { return nil }
+            return duration.seconds
+        } catch {
+            return nil
+        }
+    }
+
+    private func uniqueTrimmedURL(for recording: SavedRecording) -> URL {
+        let parent = recording.url.deletingLastPathComponent()
+        let ext = recording.url.pathExtension
+        let base = recording.url.deletingPathExtension().lastPathComponent + "_trimmed"
+        var attempt = 0
+
+        while true {
+            let suffix = attempt == 0 ? "" : "_\(attempt)"
+            let candidate = parent.appendingPathComponent(base + suffix).appendingPathExtension(ext)
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            attempt += 1
+        }
+    }
+
+    private func export(exporter: AVAssetExportSession) async throws {
+        let sessionBox = ExportSessionBox(exporter)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            sessionBox.session.exportAsynchronously {
+                switch sessionBox.session.status {
+                case .completed:
+                    continuation.resume()
+                case .failed:
+                    continuation.resume(
+                        throwing: TrimError.exportFailed(
+                            sessionBox.session.error?.localizedDescription ?? "Unknown error."
+                        )
+                    )
+                case .cancelled:
+                    continuation.resume(throwing: CancellationError())
+                default:
+                    continuation.resume(
+                        throwing: TrimError.exportFailed(
+                            "Export finished in unexpected state: \(sessionBox.session.status.rawValue)"
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+private final class ExportSessionBox: @unchecked Sendable {
+    let session: AVAssetExportSession
+
+    init(_ session: AVAssetExportSession) {
+        self.session = session
     }
 }

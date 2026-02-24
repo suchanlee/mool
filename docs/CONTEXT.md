@@ -60,7 +60,7 @@ mool/
     │   ├── Permissions/
     │   │   └── PermissionManager.swift TCC checks + requests (screen/cam/mic/accessibility)
     │   └── Storage/
-    │       └── StorageManager.swift    ~/Movies/Mool/ enumeration + file ops
+    │       └── StorageManager.swift    ~/Movies/Mool/ enumeration + metadata + file ops
     ├── Models/
     │   ├── RecordingSession.swift      Struct: id, startDate, duration, fileURL
     │   ├── RecordingSettings.swift     @Observable class: all user prefs
@@ -82,7 +82,7 @@ mool/
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
         ├── Library/
-        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with selection-driven item replacement; delete/rename/reveal
+        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with selection-driven item replacement; duration list metadata; delete/rename/reveal/trim
         ├── Settings/
         │   └── SettingsView.swift      TabView: Recording, Storage, About
         └── Onboarding/
@@ -269,6 +269,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 - Quick recorder camera menu includes a live "Flip Camera" toggle (mirrors preview and camera-only captured feed)
 - Right-click context menu preserved for library/settings/quit actions
 - Library view (AVPlayer preview, delete, rename, reveal in Finder)
+- Library view (AVPlayer preview, duration metadata in list, trim export, delete, rename, reveal in Finder)
 - Settings (Recording, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording
@@ -287,7 +288,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 2. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and menu-interaction assumptions (left-click now opens quick recorder popover).
 
 ### Stretch / future features
-- Trim editor (in-app clip trimming via `AVAssetExportSession`)
+- Advanced trim timeline (thumbnail scrubber + draggable handles)
 - Chapter markers (timestamp annotations written to file metadata)
 - MP4 export (re-encode via `AVAssetExportSession` with `.mp4` preset)
 - Automatic camera framing (Center Stage API or Vision face detection crop)

@@ -84,7 +84,7 @@ Mool/
 │   │   ├── SpeakerNotesWindow.swift    Floating notes NSPanel
 │   │   └── CountdownOverlayWindow.swift Full-screen countdown splash
 │   ├── Library/
-│   │   └── LibraryView.swift       Browse + play local recordings
+│   │   └── LibraryView.swift       Browse + play local recordings, show duration, trim clips
 │   ├── Settings/
 │   │   └── SettingsView.swift      Prefs: recording, storage, app info
 │   └── Onboarding/
@@ -207,11 +207,14 @@ File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
 
 `StorageManager` provides:
 - Enumeration of saved recordings (sorted by date)
+- Duration metadata extraction for list rows
 - Delete, rename, reveal-in-Finder
+- Trim export using start/end ranges via `AVAssetExportSession`
 - Total disk usage computation
 
 Library playback behavior:
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
+- Trim action opens a range editor (start/end sliders) and saves a new `_trimmed` recording in the same directory.
 
 ---
 

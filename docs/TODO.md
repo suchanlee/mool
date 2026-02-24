@@ -88,6 +88,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] `StorageManager.swift` — enumerate, delete, rename recordings
 - [x] Quick Look / AVPlayer preview integration
 - [x] Copy file path / reveal in Finder actions
+- [x] Show recording duration metadata in library list items
+- [x] Trim recordings from the library viewer using start/end range export
 
 ---
 
@@ -152,7 +154,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 ## Stretch / Future
 
 - [ ] Automatic camera framing (Center Stage / face detection crop)
-- [ ] Trim editor (in-app video trim before saving)
+- [ ] Advanced trim timeline (thumbnail scrubber + draggable handles)
 - [ ] Chapter markers (click to add timestamp markers during recording)
 - [ ] Export to MP4
 - [ ] Markdown speaker notes with syntax highlighting

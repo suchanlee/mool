@@ -10,7 +10,7 @@ struct LibraryView: View {
     @State private var selectedRecording: SavedRecording?
     @State private var showingDeleteConfirm = false
     @State private var renamingRecording: SavedRecording?
-    @State private var newName: String = ""
+    @State private var trimmingRecording: SavedRecording?
     @State private var player: AVPlayer?
 
     var body: some View {
@@ -43,6 +43,11 @@ struct LibraryView: View {
         .task { await storageManager.refresh() }
         .sheet(item: $renamingRecording) { recording in
             RenameSheet(recording: recording, storageManager: storageManager)
+        }
+        .sheet(item: $trimmingRecording) { recording in
+            TrimRecordingSheet(recording: recording, storageManager: storageManager) { trimmedRecording in
+                selectedRecording = trimmedRecording
+            }
         }
     }
 
@@ -77,6 +82,9 @@ struct LibraryView: View {
             }
             Button("Copy Path") {
                 storageManager.copyPath(recording)
+            }
+            Button("Trim") {
+                trimmingRecording = recording
             }
             Button(role: .destructive) {
                 showingDeleteConfirm = true
@@ -157,6 +165,141 @@ struct VideoDetailView: View {
         }
         player?.seek(to: .zero)
         player?.play()
+    }
+}
+
+// MARK: - Trim Sheet
+
+struct TrimRecordingSheet: View {
+    let recording: SavedRecording
+    let storageManager: StorageManager
+    let onTrimmed: (SavedRecording) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var trimStart: Double = 0
+    @State private var trimEnd: Double = 0
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private var totalDuration: Double {
+        max(recording.duration ?? 0, 0)
+    }
+
+    private var selectedDuration: Double {
+        max(trimEnd - trimStart, 0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Trim Recording")
+                .font(.headline)
+
+            Text(recording.title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            if totalDuration > 0 {
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Start")
+                            Spacer()
+                            Text(Self.formatTime(trimStart))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: $trimStart,
+                            in: 0 ... trimEnd,
+                            step: 0.1
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("End")
+                            Spacer()
+                            Text(Self.formatTime(trimEnd))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: $trimEnd,
+                            in: trimStart ... totalDuration,
+                            step: 0.1
+                        )
+                    }
+
+                    HStack {
+                        Text("Selected")
+                        Spacer()
+                        Text(Self.formatTime(selectedDuration))
+                            .monospacedDigit()
+                            .fontWeight(.medium)
+                    }
+                    .font(.subheadline)
+                }
+            } else {
+                Text("Unable to load duration for this recording.")
+                    .foregroundStyle(.secondary)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .disabled(isSaving)
+
+                Spacer()
+
+                Button("Save Trim") {
+                    saveTrim()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isSaving || totalDuration <= 0 || selectedDuration < 0.1)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 430)
+        .onAppear {
+            trimStart = 0
+            trimEnd = totalDuration
+        }
+    }
+
+    private func saveTrim() {
+        isSaving = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let trimmed = try await storageManager.trim(recording, from: trimStart, to: trimEnd)
+                await MainActor.run {
+                    isSaving = false
+                    onTrimmed(trimmed)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private static func formatTime(_ seconds: TimeInterval) -> String {
+        let total = Int(max(seconds, 0).rounded(.down))
+        let m = total / 60
+        let s = total % 60
+        return String(format: "%d:%02d", m, s)
     }
 }
 
