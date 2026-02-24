@@ -95,6 +95,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Replace trim sheet with timeline editor strip (thumbnail rail + drag handles + save/cancel actions)
 - [x] Polish editor layout alignment (uniform control widths/heights) and improve trim handle visibility/drag reliability
 - [x] Normalize editor button sizing while keeping full-width aligned controls
+- [x] Raise trim handles above timeline track and add live playhead progress indicator with play/pause icon sync
 
 ---
 

@@ -167,6 +167,8 @@ struct VideoDetailView: View {
     @State private var thumbnails: [NSImage] = []
     @State private var isSavingEdit = false
     @State private var editErrorMessage: String?
+    @State private var isPlaying = false
+    @State private var currentPlaybackTime: Double = 0
 
     private let minimumTrimSpan: Double = 0.1
     private let playbackRateOptions: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
@@ -174,6 +176,7 @@ struct VideoDetailView: View {
     private let editControlSpacing: CGFloat = 8
     private let editControlColumnWidth: CGFloat = 145
     private let editControlCornerRadius: CGFloat = 10
+    private let playheadTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
 
     private var timelineHeight: CGFloat {
         (editControlRowHeight * 3) + (editControlSpacing * 2)
@@ -184,10 +187,6 @@ struct VideoDetailView: View {
         let playerDuration = player?.currentItem?.duration.seconds ?? 0
         let resolved = recordedDuration > 0 ? recordedDuration : playerDuration
         return max(resolved, 0)
-    }
-
-    private var isPlaying: Bool {
-        player?.timeControlStatus == .playing
     }
 
     var body: some View {
@@ -226,6 +225,9 @@ struct VideoDetailView: View {
             guard isEditing else { return }
             applyPlaybackRateIfPlaying()
         }
+        .onReceive(playheadTimer) { _ in
+            updatePlaybackState()
+        }
         .onDisappear {
             cleanupPlayerState()
         }
@@ -254,7 +256,8 @@ struct VideoDetailView: View {
                     duration: max(totalDuration, minimumTrimSpan),
                     startTime: $editStart,
                     endTime: $editEnd,
-                    minimumSpan: minimumTrimSpan
+                    minimumSpan: minimumTrimSpan,
+                    playheadTime: currentPlaybackTime
                 )
                 .frame(maxWidth: .infinity, minHeight: timelineHeight, maxHeight: timelineHeight)
 
@@ -358,6 +361,8 @@ struct VideoDetailView: View {
 
         player?.seek(to: .zero)
         player?.play()
+        currentPlaybackTime = 0
+        isPlaying = true
     }
 
     @MainActor
@@ -370,6 +375,7 @@ struct VideoDetailView: View {
         resetEditorState()
         synchronizeEditedRange()
         player?.pause()
+        isPlaying = false
 
         Task {
             await generateThumbnailsIfNeeded(force: thumbnails.isEmpty)
@@ -390,6 +396,7 @@ struct VideoDetailView: View {
         editPlaybackRate = 1.0
         editErrorMessage = nil
         isSavingEdit = false
+        currentPlaybackTime = 0
     }
 
     @MainActor
@@ -407,6 +414,7 @@ struct VideoDetailView: View {
         let current = player.currentTime().seconds
         if current < editStart || current > editEnd {
             player.seek(to: CMTime(seconds: editStart, preferredTimescale: 600))
+            currentPlaybackTime = editStart
         }
     }
 
@@ -416,6 +424,7 @@ struct VideoDetailView: View {
 
         if player.timeControlStatus == .playing {
             player.pause()
+            isPlaying = false
             return
         }
 
@@ -425,6 +434,7 @@ struct VideoDetailView: View {
         }
 
         player.playImmediately(atRate: Float(editPlaybackRate))
+        isPlaying = true
     }
 
     @MainActor
@@ -466,6 +476,27 @@ struct VideoDetailView: View {
     private func cleanupPlayerState() {
         player?.pause()
         player = nil
+        isPlaying = false
+    }
+
+    @MainActor
+    private func updatePlaybackState() {
+        guard let player else {
+            isPlaying = false
+            return
+        }
+
+        isPlaying = player.timeControlStatus == .playing
+        let now = player.currentTime().seconds
+        if now.isFinite {
+            currentPlaybackTime = max(0, now)
+        }
+
+        if isEditing, now >= editEnd, isPlaying {
+            player.pause()
+            isPlaying = false
+            currentPlaybackTime = editEnd
+        }
     }
 
     private static func generateThumbnails(for url: URL, duration: TimeInterval, count: Int) async -> [NSImage] {
@@ -519,6 +550,7 @@ struct TrimTimelineStrip: View {
     @Binding var startTime: Double
     @Binding var endTime: Double
     let minimumSpan: Double
+    let playheadTime: Double?
 
     @State private var activeHandle: DragHandle?
 
@@ -530,42 +562,67 @@ struct TrimTimelineStrip: View {
     private let handleVisualWidth: CGFloat = 16
     private let handleHitThreshold: CGFloat = 26
     private let trackCornerRadius: CGFloat = 10
+    private let horizontalPadding: CGFloat = 12
 
     var body: some View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             let height = max(proxy.size.height, 1)
-            let startX = CGFloat(startProgress) * width
-            let endX = CGFloat(endProgress) * width
+            let trackWidth = max(width - horizontalPadding * 2, 1)
+            let trackMinX = horizontalPadding
+            let startX = trackMinX + CGFloat(startProgress) * trackWidth
+            let endX = trackMinX + CGFloat(endProgress) * trackWidth
 
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous)
-                    .fill(Color.black.opacity(0.25))
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous)
+                        .fill(Color.black.opacity(0.25))
 
-                thumbnailTrack(width: width, height: height)
-                    .clipShape(RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous))
+                    thumbnailTrack(width: trackWidth, height: height)
+                        .clipShape(RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous))
 
-                Color.black.opacity(0.45)
-                    .frame(width: max(startX, 0), height: height)
+                    Color.black.opacity(0.45)
+                        .frame(width: max(startX - trackMinX, 0), height: height)
 
-                Color.black.opacity(0.45)
-                    .frame(width: max(width - endX, 0), height: height)
-                    .offset(x: endX)
+                    Color.black.opacity(0.45)
+                        .frame(width: max((trackMinX + trackWidth) - endX, 0), height: height)
+                        .offset(x: endX - trackMinX)
 
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.yellow, lineWidth: 3)
-                    .frame(width: max(endX - startX, 18), height: max(height - 2, 1))
-                    .offset(x: startX)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.yellow, lineWidth: 3)
+                        .frame(width: max(endX - startX, 18), height: max(height - 2, 1))
+                        .offset(x: startX - trackMinX)
+
+                    if playheadTime != nil {
+                        Capsule(style: .continuous)
+                            .fill(.white.opacity(0.92))
+                            .frame(width: 2, height: height + 6)
+                            .offset(x: (playheadX(trackMinX: trackMinX, trackWidth: trackWidth, height: height) - trackMinX) - 1, y: -3)
+                            .shadow(color: .black.opacity(0.3), radius: 1)
+                    }
+                }
+                .frame(width: trackWidth, height: height)
+                .offset(x: trackMinX)
+                .zIndex(0)
 
                 handleView(height: height)
                     .offset(x: startX - handleVisualWidth / 2, y: 4)
+                    .zIndex(2)
 
                 handleView(height: height)
                     .offset(x: endX - handleVisualWidth / 2, y: 4)
+                    .zIndex(2)
             }
-            .clipShape(RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous))
             .contentShape(Rectangle())
-            .highPriorityGesture(trimDragGesture(width: width, startX: startX, endX: endX))
+            .highPriorityGesture(
+                trimDragGesture(
+                    width: width,
+                    trackMinX: trackMinX,
+                    trackWidth: trackWidth,
+                    startX: startX,
+                    endX: endX
+                )
+            )
         }
     }
 
@@ -625,7 +682,13 @@ struct TrimTimelineStrip: View {
             .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
     }
 
-    private func trimDragGesture(width: CGFloat, startX: CGFloat, endX: CGFloat) -> some Gesture {
+    private func trimDragGesture(
+        width _: CGFloat,
+        trackMinX: CGFloat,
+        trackWidth: CGFloat,
+        startX: CGFloat,
+        endX: CGFloat
+    ) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
                 if activeHandle == nil {
@@ -638,7 +701,7 @@ struct TrimTimelineStrip: View {
 
                 guard let activeHandle else { return }
 
-                let progress = clamp(Double(value.location.x / width), min: 0, max: 1)
+                let progress = clamp(Double((value.location.x - trackMinX) / trackWidth), min: 0, max: 1)
                 let time = progress * duration
 
                 switch activeHandle {
@@ -651,6 +714,12 @@ struct TrimTimelineStrip: View {
             .onEnded { _ in
                 activeHandle = nil
             }
+    }
+
+    private func playheadX(trackMinX: CGFloat, trackWidth: CGFloat, height _: CGFloat) -> CGFloat {
+        guard let playheadTime else { return trackMinX }
+        let progress = clamp(playheadTime / max(duration, minimumSpan), min: 0, max: 1)
+        return trackMinX + CGFloat(progress) * trackWidth
     }
 
     private func clamp(_ value: Double, min: Double, max: Double) -> Double {
