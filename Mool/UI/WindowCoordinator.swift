@@ -6,7 +6,6 @@ import AppKit
 /// annotation overlay, speaker notes). Shown/hidden around recording sessions.
 @MainActor
 final class WindowCoordinator {
-
     private unowned let recordingEngine: RecordingEngine
 
     let annotationManager = AnnotationManager()
@@ -64,13 +63,14 @@ final class WindowCoordinator {
     // MARK: - Show / Hide
 
     func showOverlays() {
+        // Keep the annotation canvas behind interactive HUD windows.
+        annotationOverlayWindow?.orderFront(nil)
         controlPanelWindow?.orderFront(nil)
 
         if recordingEngine.settings.mode.includesCamera {
             cameraBubbleWindow?.orderFront(nil)
         }
 
-        annotationOverlayWindow?.orderFront(nil)
         cursorTracker.startTracking()
     }
 
@@ -113,7 +113,7 @@ final class WindowCoordinator {
                 self.handleGlobalKeyEvent(event)
             }
         }
-        _ = settings  // reference to trigger observation in future
+        _ = settings // reference to trigger observation in future
     }
 
     private func startStateObservation() {
@@ -129,7 +129,7 @@ final class WindowCoordinator {
 
     @objc private func handleStateObservationTick() {
         switch recordingEngine.state {
-        case .countdown(let seconds):
+        case let .countdown(seconds):
             showCountdownOverlay(secondsRemaining: seconds)
         default:
             hideCountdownOverlay()
@@ -164,7 +164,7 @@ final class WindowCoordinator {
 
         func matches(_ shortcut: RecordingShortcut) -> Bool {
             event.charactersIgnoringModifiers?.lowercased() == shortcut.key &&
-            flags == shortcut.modifiers.toNSEventModifiers()
+                flags == shortcut.modifiers.toNSEventModifiers()
         }
 
         if matches(shortcuts.startStop) {
