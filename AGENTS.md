@@ -90,6 +90,7 @@ window.isReleasedWhenClosed = false
 ## Commit Discipline
 
 - Make **one commit per logical change** (feature, bug fix, refactor).
+- Commit completed work incrementally as you go; do not leave finished logical changes uncommitted when switching tasks.
 - Commit message format: `<type>: <short description>` — types: `feat`, `fix`, `refactor`, `docs`, `chore`.
 - Examples: `feat: add countdown full-screen overlay`, `fix: camera resume gap after pause`.
 - The project must **build successfully** before every commit.
