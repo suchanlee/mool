@@ -3,21 +3,39 @@ import SwiftUI
 
 // MARK: - Camera Bubble Window
 
-/// A draggable, resizable floating window showing the live camera feed.
+enum CameraBubbleSizePreset: String, CaseIterable {
+    case small
+    case medium
+    case large
+
+    var sideLength: CGFloat {
+        switch self {
+        case .small: 160
+        case .medium: 220
+        case .large: 300
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .small: "S"
+        case .medium: "M"
+        case .large: "L"
+        }
+    }
+}
+
+/// A draggable floating window showing the live camera feed.
 final class CameraBubbleWindow: NSPanel {
-    private let minimumBubbleSize: CGFloat = 100
-    private let maximumBubbleSize: CGFloat = 400
     private var moveAnchorMouseLocation: NSPoint?
     private var moveAnchorFrame: NSRect?
-    private var resizeAnchorMouseLocation: NSPoint?
-    private var resizeAnchorFrame: NSRect?
 
     override var canBecomeKey: Bool {
         true
     }
 
     init(cameraManager: any CameraManaging) {
-        let defaultSize: CGFloat = 200
+        let defaultSize = CameraBubbleSizePreset.medium.sideLength
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: defaultSize, height: defaultSize),
             styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
@@ -31,7 +49,7 @@ final class CameraBubbleWindow: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        hasShadow = false
         isReleasedWhenClosed = false
 
         let view = CameraBubbleView(
@@ -44,15 +62,6 @@ final class CameraBubbleWindow: NSPanel {
             },
             onMoveEnded: { [weak self] in
                 self?.endMove()
-            },
-            onResizeBegan: { [weak self] mouseLocation in
-                self?.beginResize(at: mouseLocation)
-            },
-            onResizeChanged: { [weak self] mouseLocation in
-                self?.resize(to: mouseLocation)
-            },
-            onResizeEnded: { [weak self] in
-                self?.endResize()
             }
         )
         contentView = NSHostingView(rootView: view)
@@ -87,40 +96,6 @@ final class CameraBubbleWindow: NSPanel {
         moveAnchorFrame = nil
     }
 
-    private func beginResize(at mouseLocation: NSPoint) {
-        resizeAnchorMouseLocation = mouseLocation
-        resizeAnchorFrame = frame
-    }
-
-    private func resize(to mouseLocation: NSPoint) {
-        guard let anchorMouse = resizeAnchorMouseLocation, let anchorFrame = resizeAnchorFrame else { return }
-        let deltaX = mouseLocation.x - anchorMouse.x
-        let deltaY = mouseLocation.y - anchorMouse.y
-        let sizeDelta = max(deltaX, -deltaY)
-
-        let maxSizeByBounds: CGFloat = {
-            guard let visible = activeVisibleFrame() else { return maximumBubbleSize }
-            // Keep top-left fixed while resizing from bottom-right.
-            let availableToRight = visible.maxX - anchorFrame.minX
-            let availableToBottom = anchorFrame.maxY - visible.minY
-            return min(maximumBubbleSize, availableToRight, availableToBottom)
-        }()
-
-        let targetSize = min(max(anchorFrame.width + sizeDelta, minimumBubbleSize), maxSizeByBounds)
-        guard abs(targetSize - anchorFrame.width) > 0.01 else { return }
-
-        var nextFrame = anchorFrame
-        nextFrame.size = NSSize(width: targetSize, height: targetSize)
-        nextFrame.origin.y = anchorFrame.maxY - targetSize
-
-        setFrame(clampedToVisibleFrame(nextFrame), display: true)
-    }
-
-    private func endResize() {
-        resizeAnchorMouseLocation = nil
-        resizeAnchorFrame = nil
-    }
-
     private func clampedToVisibleFrame(_ candidate: NSRect) -> NSRect {
         guard let visible = activeVisibleFrame() else { return candidate }
         var frame = candidate
@@ -137,5 +112,25 @@ final class CameraBubbleWindow: NSPanel {
             return screen.visibleFrame
         }
         return NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame
+    }
+
+    func applySizePreset(_ preset: CameraBubbleSizePreset) {
+        let targetSize = preset.sideLength
+        let center = NSPoint(x: frame.midX, y: frame.midY)
+        var nextFrame = NSRect(
+            x: center.x - targetSize / 2,
+            y: center.y - targetSize / 2,
+            width: targetSize,
+            height: targetSize
+        )
+        nextFrame = clampedToVisibleFrame(nextFrame)
+        setFrame(nextFrame, display: true, animate: false)
+    }
+
+    func currentSizePreset() -> CameraBubbleSizePreset {
+        let side = frame.width
+        return CameraBubbleSizePreset.allCases.min {
+            abs($0.sideLength - side) < abs($1.sideLength - side)
+        } ?? .medium
     }
 }

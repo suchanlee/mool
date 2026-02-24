@@ -58,15 +58,19 @@ final class RecordingEngine {
     func startRecording() async throws {
         guard state == .idle else { return }
         runtimeErrorMessage = nil
+        do {
+            // Refresh available sources
+            await availableSources.refresh()
 
-        // Refresh available sources
-        await availableSources.refresh()
+            if settings.countdownDuration > 0 {
+                await runCountdown()
+            }
 
-        if settings.countdownDuration > 0 {
-            await runCountdown()
+            try await beginCapture()
+        } catch {
+            await rollbackFailedStart()
+            throw error
         }
-
-        try await beginCapture()
     }
 
     func pauseRecording() {
@@ -234,6 +238,20 @@ final class RecordingEngine {
                 state = .countdown(secondsRemaining: remaining)
             }
         }
+    }
+
+    private func rollbackFailedStart() async {
+        elapsedTimer?.invalidate()
+        try? await screenManager.stopCapture()
+        cameraManager.stopCapture()
+        audioManager.stopCapture()
+        cameraManager.setFrameHandler(nil)
+        audioManager.setMicHandler(nil)
+        videoWriter?.cancel()
+        videoWriter = nil
+        currentSession = nil
+        elapsedTime = 0
+        state = .idle
     }
 
     private func beginCapture() async throws {

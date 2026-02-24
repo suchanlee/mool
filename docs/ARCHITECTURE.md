@@ -79,7 +79,7 @@ Mool/
 │   │   ├── ControlPanelWindow.swift    NSPanel (floating, non-activating)
 │   │   ├── ControlPanelView.swift      SwiftUI HUD: record/pause/stop/timer
 │   │   ├── CameraBubbleWindow.swift    Borderless NSPanel, draggable
-│   │   ├── CameraBubbleView.swift      SwiftUI cam preview with resize handle
+│   │   ├── CameraBubbleView.swift      SwiftUI cam preview with drag gesture
 │   │   ├── AnnotationOverlayWindow.swift  Full-screen NSWindow, drawing layer
 │   │   ├── SpeakerNotesWindow.swift    Floating notes NSPanel
 │   │   └── CountdownOverlayWindow.swift Full-screen countdown splash
@@ -105,6 +105,7 @@ User clicks menu bar status item
       ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
       │               Popover show/close drives quick preview lifecycle:
       │               UI uses rounded control rows + pill toggles + single primary start action
+      │               window picker lists app-owned top-level windows only
       │               open => request missing screen/camera/mic permissions, then
       │                       prepareQuickRecorderContext() + show CameraBubbleWindow
       │               interaction => outside-click monitor keeps bubble interactions active
@@ -131,6 +132,9 @@ User clicks menu bar status item
               In screen mode, avoids extra camera compositing so only the on-screen camera bubble is captured
               Receives audio → writes AAC track
               On stop → finishes writing → emits file URL
+
+If capture setup fails after countdown, `RecordingEngine` rolls back partial startup
+(stop capture sessions, cancel writer, reset state to `.idle`) and UI controllers hide overlays.
 
 After a successful recording stops, the menu bar controller opens the Library window automatically.
 
@@ -163,8 +167,8 @@ All overlay windows share these properties:
 
 | Window | Type | Interaction |
 |---|---|---|
-| ControlPanelWindow | NSPanel, `.nonactivatingPanel` | Click buttons, does NOT steal focus |
-| CameraBubbleWindow | NSPanel, borderless | Draggable + resizable via explicit SwiftUI gestures that update panel frame |
+| ControlPanelWindow | NSPanel, `.nonactivatingPanel` | In camera mode, anchored below camera bubble and shown only while hovering bubble/HUD; otherwise shown as standalone HUD |
+| CameraBubbleWindow | NSPanel, borderless | Draggable via explicit SwiftUI gesture updates; size is controlled by HUD presets (Small/Medium/Large); uses circular-only shadow (no square panel shadow artifact) |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |
 | CountdownOverlayWindow | NSWindow, borderless | Full-screen dim + large pre-roll countdown number |

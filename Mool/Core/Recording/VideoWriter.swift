@@ -183,6 +183,22 @@ final class VideoWriter: Sendable {
         return outputURL
     }
 
+    func cancel() {
+        assetWriter?.cancelWriting()
+        videoInput = nil
+        audioMicInput = nil
+        audioSysInput = nil
+        pixelBufferAdaptor = nil
+        assetWriter = nil
+        sessionStarted = false
+        latestCameraBuffer = nil
+        isPaused = false
+        pauseStartTime = .invalid
+        totalPausedDuration = .zero
+        _state = .idle
+        try? FileManager.default.removeItem(at: outputURL)
+    }
+
     // MARK: - Helpers
 
     private func adjustedPTS(_ pts: CMTime) -> CMTime {

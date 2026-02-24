@@ -9,10 +9,12 @@ final class ControlPanelWindow: NSPanel {
     init(
         recordingEngine: RecordingEngine,
         annotationManager: AnnotationManager,
-        onStopRequested: @escaping () -> Void
+        onStopRequested: @escaping () -> Void,
+        onBubbleSizeSelected: @escaping (CameraBubbleSizePreset) -> Void,
+        currentBubbleSize: @escaping () -> CameraBubbleSizePreset?
     ) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 68),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 74),
             styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -33,7 +35,9 @@ final class ControlPanelWindow: NSPanel {
         // Content
         let view = ControlPanelView(
             annotationManager: annotationManager,
-            onStopRequested: onStopRequested
+            onStopRequested: onStopRequested,
+            onBubbleSizeSelected: onBubbleSizeSelected,
+            currentBubbleSize: currentBubbleSize
         )
         .environment(recordingEngine)
         contentView = NSHostingView(rootView: view)

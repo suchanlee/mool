@@ -84,7 +84,7 @@ struct QuickRecorderPopoverView: View {
     }
 
     private var cameraRow: some View {
-        HStack(spacing: 10) {
+        ZStack(alignment: .trailing) {
             Menu {
                 Button("Default Camera") {
                     engine.selectCameraDevice(uniqueID: nil)
@@ -100,6 +100,7 @@ struct QuickRecorderPopoverView: View {
                     iconColor: engine.settings.mode.includesCamera ? .primary : .red.opacity(0.8),
                     title: engine.settings.mode.includesCamera ? selectedCameraName : "No Camera",
                     subtitle: engine.settings.mode.includesCamera ? "Click to change camera" : "Camera is turned off",
+                    trailingInset: 54,
                     trailing: {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .semibold))
@@ -116,11 +117,13 @@ struct QuickRecorderPopoverView: View {
                 onCameraVisibilityChanged()
                 refreshInputDevices()
             }
+            .padding(.trailing, 12)
+            .zIndex(1)
         }
     }
 
     private var microphoneRow: some View {
-        HStack(spacing: 10) {
+        ZStack(alignment: .trailing) {
             Menu {
                 Button("Default Microphone") {
                     engine.selectMicrophoneDevice(uniqueID: nil)
@@ -136,6 +139,7 @@ struct QuickRecorderPopoverView: View {
                     iconColor: .primary,
                     title: engine.settings.captureMicrophone ? selectedMicrophoneName : "Microphone Off",
                     subtitle: engine.settings.captureMicrophone ? "Click to change microphone" : "Microphone is disabled",
+                    trailingInset: 54,
                     trailing: {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .semibold))
@@ -151,6 +155,8 @@ struct QuickRecorderPopoverView: View {
                 engine.settings.captureMicrophone.toggle()
                 engine.settings.save()
             }
+            .padding(.trailing, 12)
+            .zIndex(1)
         }
     }
 
@@ -263,7 +269,24 @@ private struct RowCard<Trailing: View>: View {
     let iconColor: Color
     let title: String
     let subtitle: String
+    let trailingInset: CGFloat
     @ViewBuilder let trailing: () -> Trailing
+
+    init(
+        iconName: String,
+        iconColor: Color,
+        title: String,
+        subtitle: String,
+        trailingInset: CGFloat = 0,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.iconName = iconName
+        self.iconColor = iconColor
+        self.title = title
+        self.subtitle = subtitle
+        self.trailingInset = trailingInset
+        self.trailing = trailing
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -288,6 +311,7 @@ private struct RowCard<Trailing: View>: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .padding(.trailing, trailingInset)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))

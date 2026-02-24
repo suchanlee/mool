@@ -8,7 +8,6 @@ import SwiftUI
 /// On cancel: just closes.
 @MainActor
 final class SourcePickerController {
-
     private var window: NSWindow?
     private unowned let engine: RecordingEngine
     private unowned let coordinator: WindowCoordinator
@@ -60,6 +59,8 @@ final class SourcePickerController {
                 try await engine.startRecording()
                 coordinator.showOverlays()
             } catch {
+                coordinator.hideOverlays()
+                engine.teardownQuickRecorderContext()
                 showError(error)
             }
         }

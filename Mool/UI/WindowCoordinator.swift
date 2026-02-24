@@ -40,6 +40,12 @@ final class WindowCoordinator {
             annotationManager: annotationManager,
             onStopRequested: { [weak self] in
                 self?.hideOverlays()
+            },
+            onBubbleSizeSelected: { [weak self] preset in
+                self?.setCameraBubbleSize(preset)
+            },
+            currentBubbleSize: { [weak self] in
+                self?.cameraBubbleWindow?.currentSizePreset()
             }
         )
 
@@ -70,10 +76,13 @@ final class WindowCoordinator {
     func showOverlays() {
         // Keep the annotation canvas behind interactive HUD windows.
         annotationOverlayWindow?.orderFront(nil)
-        controlPanelWindow?.orderFront(nil)
 
         if recordingEngine.settings.mode.includesCamera {
             cameraBubbleWindow?.orderFront(nil)
+            updateBubbleAttachedHUD()
+        } else {
+            positionControlPanelBottomCenter()
+            controlPanelWindow?.orderFront(nil)
         }
 
         cursorTracker.startTracking()
@@ -99,6 +108,7 @@ final class WindowCoordinator {
     func refreshQuickPreviewBubble() {
         guard showsQuickPreviewBubble else { return }
         guard recordingEngine.state == .idle else { return }
+        controlPanelWindow?.orderOut(nil)
 
         if recordingEngine.settings.mode.includesCamera {
             cameraBubbleWindow?.orderFront(nil)
@@ -134,6 +144,10 @@ final class WindowCoordinator {
             cam.orderOut(nil)
         } else {
             cam.orderFront(nil)
+        }
+
+        if recordingEngine.state == .recording || recordingEngine.state == .paused {
+            updateBubbleAttachedHUD()
         }
     }
 
@@ -171,6 +185,7 @@ final class WindowCoordinator {
         lastObservedState = state
 
         refreshQuickPreviewBubble()
+        updateBubbleAttachedHUD()
 
         switch state {
         case let .countdown(seconds):
@@ -230,5 +245,88 @@ final class WindowCoordinator {
         } else if matches(shortcuts.toggleSpeakerNotes) {
             toggleSpeakerNotes()
         }
+    }
+
+    private func updateBubbleAttachedHUD() {
+        guard let controlPanel = controlPanelWindow else { return }
+
+        let state = recordingEngine.state
+        let isRecordingState = state == .recording || state == .paused
+        let isCameraMode = recordingEngine.settings.mode.includesCamera
+        let shouldAttachToBubble = isRecordingState && isCameraMode
+
+        guard shouldAttachToBubble else {
+            if isRecordingState {
+                positionControlPanelBottomCenter()
+                controlPanel.orderFront(nil)
+            } else {
+                controlPanel.orderOut(nil)
+            }
+            return
+        }
+
+        guard let bubble = cameraBubbleWindow else {
+            positionControlPanelBottomCenter()
+            controlPanel.orderFront(nil)
+            return
+        }
+
+        if bubble.isVisible {
+            positionControlPanelBelowBubble()
+            let mouse = NSEvent.mouseLocation
+            let shouldShowHUD = bubble.frame.contains(mouse) || controlPanel.frame.contains(mouse)
+
+            if shouldShowHUD {
+                if !controlPanel.isVisible {
+                    controlPanel.orderFront(nil)
+                }
+            } else {
+                if controlPanel.isVisible {
+                    controlPanel.orderOut(nil)
+                }
+            }
+        } else {
+            positionControlPanelBottomCenter()
+            controlPanel.orderFront(nil)
+        }
+    }
+
+    private func positionControlPanelBelowBubble() {
+        guard let controlPanel = controlPanelWindow, let bubble = cameraBubbleWindow else { return }
+        let panelSize = controlPanel.frame.size
+
+        let visible = bubble.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? NSScreen.screens.first?.visibleFrame
+            ?? .zero
+        guard !visible.equalTo(.zero) else { return }
+
+        let edgePadding: CGFloat = 12
+        let overlap: CGFloat = 14
+        var x = bubble.frame.midX - panelSize.width / 2
+        x = min(max(x, visible.minX + edgePadding), visible.maxX - panelSize.width - edgePadding)
+
+        var y = bubble.frame.minY - panelSize.height + overlap
+        if y < visible.minY + edgePadding {
+            y = bubble.frame.maxY - overlap
+            y = min(y, visible.maxY - panelSize.height - edgePadding)
+        }
+
+        controlPanel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    private func positionControlPanelBottomCenter() {
+        guard let controlPanel = controlPanelWindow else { return }
+        let visible = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
+        guard !visible.equalTo(.zero) else { return }
+
+        let x = visible.midX - controlPanel.frame.width / 2
+        let y = visible.minY + 40
+        controlPanel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    private func setCameraBubbleSize(_ preset: CameraBubbleSizePreset) {
+        cameraBubbleWindow?.applySizePreset(preset)
+        updateBubbleAttachedHUD()
     }
 }

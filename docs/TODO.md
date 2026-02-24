@@ -45,7 +45,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 
 - [x] `ControlPanelWindow.swift` — floating NSPanel (non-activating)
 - [x] `ControlPanelView.swift` — SwiftUI HUD: record/pause/stop/timer/mode indicator
-- [x] `CameraBubbleWindow.swift` — draggable, resizable borderless NSPanel
+- [x] `CameraBubbleWindow.swift` — draggable borderless NSPanel
 - [x] `CameraBubbleView.swift` — SwiftUI camera live preview with drag + corner resize
 - [x] `AnnotationOverlayWindow.swift` — full-screen transparent NSWindow for drawing
 - [x] `SpeakerNotesWindow.swift` — floating notes panel
@@ -99,7 +99,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Menu bar icon animates during recording (red icon when recording)
 - [x] Quick recorder camera preview uses camera bubble while popover is open, and fully tears down on close
 - [x] Fix cropped display recordings by aligning writer output dimensions with screen stream dimensions
-- [x] Restore camera bubble drag + resize behavior in both quick preview and recording sessions
+- [x] Restore camera bubble drag behavior in both quick preview and recording sessions
 - [x] Keep quick recorder popover open while moving/resizing camera bubble
 - [x] Close quick recorder popover on true outside click while preserving status-item/popover/bubble interactions
 - [x] Composite camera feed as circular bubble in recorded output (instead of rectangular PiP)
@@ -108,13 +108,18 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Rework camera bubble drag/resize interaction for 1:1 movement and reliable resize behavior
 - [x] Fix Library preview player to switch correctly when a different recording is selected
 - [x] Redesign quick recorder popover with rounded row controls and remove top-right utility buttons
+- [x] Attach recording HUD below camera bubble and show it only while hovering the bubble/HUD area
+- [x] Remove square camera panel outline artifact and use subtle circular bubble shadow styling
+- [x] Replace drag-to-resize with HUD camera size presets (Small/Medium/Large)
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
 - [x] Multiple display support — display picker in source picker UI
 - [x] Window capture mode UI — window picker in source picker UI
+- [x] Filter window capture list to app-owned top-level windows only (exclude desktop/system surfaces)
 - [x] Camera-only mode — exposed via source picker mode selector
 - [x] Graceful handling of permission denial (PermissionsView guides user to System Settings)
 - [x] Request screen/camera/microphone permissions on quick recorder popover open (not first at record start)
 - [x] Handle display sleep / disconnect during recording (auto-stop + user-facing alert)
+- [x] On failed recording start, fully rollback capture state (camera/audio/writer), hide overlays, and return to idle
 - [ ] Keyboard shortcut conflict detection
 - [x] Recording file auto-named with timestamp
 

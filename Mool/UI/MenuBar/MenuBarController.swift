@@ -148,6 +148,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
                 try await recordingEngine.startRecording()
                 windowCoordinator.showOverlays()
             } catch {
+                windowCoordinator.hideOverlays()
+                recordingEngine.teardownQuickRecorderContext()
                 showError(error)
             }
         }
@@ -262,7 +264,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         permissionManager.checkCamera()
         permissionManager.checkMicrophone()
 
-        if permissionManager.screenRecording == .notDetermined {
+        if permissionManager.screenRecording != .granted {
             permissionManager.requestScreenRecording(openSettingsOnDeny: false)
             await permissionManager.checkScreenRecording()
         }

@@ -7,10 +7,19 @@ struct ControlPanelView: View {
     @Environment(RecordingEngine.self) private var engine
     @Bindable var annotationManager: AnnotationManager
     let onStopRequested: () -> Void
+    let onBubbleSizeSelected: (CameraBubbleSizePreset) -> Void
+    let currentBubbleSize: () -> CameraBubbleSizePreset?
 
-    init(annotationManager: AnnotationManager, onStopRequested: @escaping () -> Void = {}) {
+    init(
+        annotationManager: AnnotationManager,
+        onStopRequested: @escaping () -> Void = {},
+        onBubbleSizeSelected: @escaping (CameraBubbleSizePreset) -> Void = { _ in },
+        currentBubbleSize: @escaping () -> CameraBubbleSizePreset? = { nil }
+    ) {
         self.annotationManager = annotationManager
         self.onStopRequested = onStopRequested
+        self.onBubbleSizeSelected = onBubbleSizeSelected
+        self.currentBubbleSize = currentBubbleSize
     }
 
     var body: some View {
@@ -62,6 +71,11 @@ struct ControlPanelView: View {
                     annotationManager.isAnnotating.toggle()
                 }
                 .accessibilityIdentifier("hud.annotate")
+            }
+
+            if engine.settings.mode.includesCamera {
+                Divider().frame(height: 28)
+                cameraSizeToolbar
             }
 
             // Annotation tools (shown when annotating)
@@ -129,6 +143,21 @@ struct ControlPanelView: View {
         }
     }
 
+    private var cameraSizeToolbar: some View {
+        let selected = currentBubbleSize() ?? .medium
+        return HStack(spacing: 6) {
+            ForEach(CameraBubbleSizePreset.allCases, id: \.self) { preset in
+                HUDLabelButton(
+                    label: preset.shortLabel,
+                    isActive: selected == preset
+                ) {
+                    onBubbleSizeSelected(preset)
+                }
+                .accessibilityIdentifier("hud.cameraSize.\(preset.rawValue)")
+            }
+        }
+    }
+
     private var formattedTime: String {
         let t = Int(engine.elapsedTime)
         return String(format: "%d:%02d", t / 60, t % 60)
@@ -154,6 +183,28 @@ struct HUDButton: View {
                         ? AnyShapeStyle(tint.opacity(0.2))
                         : AnyShapeStyle(Color.white.opacity(0.08)),
                     in: RoundedRectangle(cornerRadius: 7)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct HUDLabelButton: View {
+    let label: String
+    var isActive: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isActive ? .yellow : .white)
+                .frame(width: 24, height: 24)
+                .background(
+                    isActive
+                        ? AnyShapeStyle(Color.yellow.opacity(0.2))
+                        : AnyShapeStyle(Color.white.opacity(0.08)),
+                    in: RoundedRectangle(cornerRadius: 6)
                 )
         }
         .buttonStyle(.plain)

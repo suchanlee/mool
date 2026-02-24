@@ -64,7 +64,32 @@ final class AvailableSources {
                 onScreenWindowsOnly: true
             )
             displays = content.displays
-            windows = content.windows.filter { $0.title != nil && $0.frame.width > 100 }
+            let excludedBundleIDs: Set<String> = [
+                "com.apple.dock",
+                "com.apple.notificationcenterui",
+                "com.apple.systemuiserver"
+            ]
+
+            windows = content.windows
+                .filter { window in
+                    guard window.windowLayer == 0 else { return false }
+                    guard window.frame.width >= 120, window.frame.height >= 80 else { return false }
+                    guard let app = window.owningApplication else { return false }
+                    let title = (window.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !title.isEmpty else { return false }
+                    if excludedBundleIDs.contains(app.bundleIdentifier) {
+                        return false
+                    }
+                    return true
+                }
+                .sorted { lhs, rhs in
+                    let lhsApp = lhs.owningApplication?.applicationName ?? ""
+                    let rhsApp = rhs.owningApplication?.applicationName ?? ""
+                    if lhsApp == rhsApp {
+                        return (lhs.title ?? "") < (rhs.title ?? "")
+                    }
+                    return lhsApp < rhsApp
+                }
         } catch {
             print("[AvailableSources] Failed to enumerate sources: \(error)")
         }

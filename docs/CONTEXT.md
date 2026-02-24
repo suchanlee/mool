@@ -77,7 +77,7 @@ mool/
         │   ├── ControlPanelWindow.swift    NSPanel (.nonactivatingPanel) — never steals focus
         │   ├── ControlPanelView.swift      HUD: rec indicator, timer, pause/stop, annotation toolbar
         │   ├── CameraBubbleWindow.swift    Borderless NSPanel; draggable
-        │   ├── CameraBubbleView.swift      Circular cam preview + screen-space anchored move/resize gestures
+        │   ├── CameraBubbleView.swift      Circular cam preview + screen-space anchored move gesture
         │   ├── AnnotationOverlayWindow.swift  Full-screen transparent NSWindow for drawing
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
@@ -129,7 +129,7 @@ AppDelegate
    - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
      - On popover open, `MenuBarController` requests any missing screen/camera/mic permissions that are still `.notDetermined`.
      - While the popover is open, `MenuBarController` prepares quick-recorder context and shows `CameraBubbleWindow` as the preview surface.
-     - Popover behavior is app-defined so interacting with the camera bubble (move/resize) does not auto-dismiss it.
+     - Popover behavior is app-defined so interacting with the camera bubble (move) does not auto-dismiss it.
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.
      - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
@@ -137,7 +137,7 @@ AppDelegate
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
    - Validates required permissions (screen preflight for screen-including modes)
-   - Refreshes `availableSources` (SCShareableContent enumeration)
+   - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
      - Creates `VideoWriter` with source dimensions aligned to `SCStream` resolution (`contentRect * 2`) → calls `writer.setup()`
@@ -145,7 +145,9 @@ AppDelegate
      - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
      - Starts `AudioManager`, hooks `onMicBuffer → videoWriter.appendMicAudio()`
      - Sets `state = .recording`, starts elapsed timer
+   - If startup fails at any point, it rolls back partial startup (stops capture sessions, cancels writer, clears session) and returns to `.idle`.
 5. `WindowCoordinator` shows recording overlays; during countdown it also shows a full-screen `CountdownOverlayWindow` per display.
+   - In camera-including modes, the recording HUD is positioned below the camera bubble and only shown while hovering the bubble/HUD region.
 6. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
 7. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
 8. When recording finishes successfully and state returns to idle, `MenuBarController` auto-opens Library so the new recording is immediately visible.
@@ -256,7 +258,8 @@ All overlay windows share these properties set at creation time:
 The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-through). `AnnotationManager.isAnnotating` toggles this via the `overlayWindow` weak reference.
 
 The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
-The **CameraBubbleWindow** move and resize behavior is handled by screen-space anchored gestures in `CameraBubbleView` that update the panel frame directly (1:1 drag feel, reduced jitter, size clamping, visible-frame clamping).
+In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD.
+The **CameraBubbleWindow** move behavior is handled by screen-space anchored gestures in `CameraBubbleView` that update the panel frame directly (1:1 drag feel, reduced jitter, visible-frame clamping). Bubble size is set via HUD presets (Small/Medium/Large), and the panel-level square shadow is disabled in favor of circular content shadow styling.
 
 The **CountdownOverlayWindow** is borderless, click-through, and shown on each connected display while `RecordingEngine.state` is `.countdown`.
 
