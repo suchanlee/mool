@@ -282,9 +282,8 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
   - XCUITest suites for launch/library/settings/source-picker flows
 
 ### Known gaps / next priorities
-1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has no images, only `Contents.json`. Add PNG assets at standard macOS sizes.
-2. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
-3. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and menu-interaction assumptions (left-click now opens quick recorder popover).
+1. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
+2. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and menu-interaction assumptions (left-click now opens quick recorder popover).
 
 ### Stretch / future features
 - Trim editor (in-app clip trimming via `AVAssetExportSession`)

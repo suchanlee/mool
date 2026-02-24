@@ -106,7 +106,6 @@ After every non-trivial change:
 
 See `docs/TODO.md` for full list. Top items:
 
-1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has only `Contents.json`. Need PNG assets at standard macOS sizes.
-2. **Display disconnect** — `screenCaptureManagerDidStop` calls `stopRecording()` but shows no user-facing error.
-3. **Camera resume gap** — ~300ms freeze in PiP after pause/resume.
-4. **Full-screen countdown overlay** — `RecordingState.countdown(secondsRemaining:)` exists but only consumed by the HUD, not a full-screen overlay.
+1. **Display disconnect** — `screenCaptureManagerDidStop` calls `stopRecording()` but shows no user-facing error.
+2. **Camera resume gap** — ~300ms freeze in PiP after pause/resume.
+3. **Full-screen countdown overlay** — `RecordingState.countdown(secondsRemaining:)` exists but only consumed by the HUD, not a full-screen overlay.

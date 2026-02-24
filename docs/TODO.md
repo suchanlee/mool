@@ -11,7 +11,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Generate Xcode project via xcodegen
 - [x] Configure entitlements (screen recording, camera, mic, accessibility)
 - [x] Configure Info.plist (usage descriptions, LSUIElement, login item)
-- [x] Set up Assets.xcassets (app icon placeholder)
+- [x] Set up Assets.xcassets with generated app icon artwork
 - [x] Add SwiftFormat + SwiftLint pre-commit hook workflow
 
 ---
@@ -119,6 +119,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Handle display sleep / disconnect during recording (auto-stop + user-facing alert)
 - [x] On failed recording start, fully rollback capture state (camera/audio/writer), hide overlays, and return to idle
 - [x] Remove global keyboard shortcuts and shortcut settings UI
+- [x] Add app icon artwork (abstract water droplet) across all required macOS AppIcon sizes
 - [x] Recording file auto-named with timestamp
 
 ---
@@ -138,10 +139,9 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 
 ## Known Issues / Next Priorities
 
-1. **App Icon** — Placeholder assets only; need actual icon artwork
-2. **Accessibility Permission** — `CGEvent.tapCreate` with `.cgAnnotatedSessionEventTap` may need adjustment per macOS version
-3. **Camera resume gap** — On pause/resume, the camera AVCaptureSession is stopped/started; there may be a brief startup delay before the first frames arrive
-4. **UI test flakiness** — Some XCUITests intermittently fail due status item hit-testing and duplicate `Settings…` menu items in query scope
+1. **Accessibility Permission** — `CGEvent.tapCreate` with `.cgAnnotatedSessionEventTap` may need adjustment per macOS version
+2. **Camera resume gap** — On pause/resume, the camera AVCaptureSession is stopped/started; there may be a brief startup delay before the first frames arrive
+3. **UI test flakiness** — Some XCUITests intermittently fail due status item hit-testing and duplicate `Settings…` menu items in query scope
 
 ---
 

@@ -194,7 +194,6 @@ Run checks manually:
 
 See [`docs/TODO.md`](docs/TODO.md) for the full task list. High-priority items:
 
-- [ ] App icon artwork (placeholder assets currently)
 - [ ] Handle display disconnect mid-recording
 - [ ] Trim editor
 - [ ] Chapter markers
