@@ -63,10 +63,10 @@ mool/
     │       └── StorageManager.swift    ~/Movies/Mool/ enumeration + file ops
     ├── Models/
     │   ├── RecordingSession.swift      Struct: id, startDate, duration, fileURL
-    │   ├── RecordingSettings.swift     @Observable class: all user prefs + RecordingShortcut types
+    │   ├── RecordingSettings.swift     @Observable class: all user prefs
     │   └── CaptureSource.swift         Enum wrapping SCDisplay / SCWindow; AvailableSources class
     └── UI/
-        ├── WindowCoordinator.swift     Owns all overlay NSPanels; handles global keyboard shortcuts
+        ├── WindowCoordinator.swift     Owns all overlay NSPanels
         ├── MenuBar/
         │   ├── MenuBarController.swift NSStatusItem; left-click quick recorder, right-click context menu
         │   └── QuickRecorderPopoverView.swift  Loom-style rounded source/camera/audio quick controls with pill toggles
@@ -84,8 +84,7 @@ mool/
         ├── Library/
         │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with selection-driven item replacement; delete/rename/reveal
         ├── Settings/
-        │   ├── SettingsView.swift      TabView: Recording, Shortcuts, Storage, About
-        │   └── KeyboardShortcutRecorder.swift  NSView-based key capture + ShortcutField SwiftUI wrapper
+        │   └── SettingsView.swift      TabView: Recording, Storage, About
         └── Onboarding/
             └── PermissionsView.swift   Step-by-step permission grant UI
 ```
@@ -124,7 +123,7 @@ AppDelegate
 
 ## Recording Flow (step by step)
 
-1. User clicks the menu bar item (or presses ⌘⇧R).
+1. User clicks the menu bar item.
 2. Entry paths:
    - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
      - On popover open, `MenuBarController` requests any missing screen/camera/mic permissions that are still `.notDetermined`.
@@ -133,7 +132,6 @@ AppDelegate
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.
      - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
-   - Keyboard shortcut: `WindowCoordinator.showSourcePicker()` opens full source picker.
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
    - Validates required permissions (screen preflight for screen-including modes)
@@ -211,12 +209,6 @@ All `@Observable` classes — **do not mix with `ObservableObject`**.
 
 ---
 
-## Key Type Name: `RecordingShortcut`
-
-Our custom keyboard shortcut struct is named **`RecordingShortcut`** (not `KeyboardShortcut`). `KeyboardShortcut` is a SwiftUI built-in that would conflict. The container struct is `RecordingShortcuts` (plural). Both live in `RecordingSettings.swift`.
-
----
-
 ## Permissions
 
 | Permission | API | Required |
@@ -275,14 +267,12 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 - Source picker UI (mode card + display grid + window list)
 - Menu bar quick recorder popover (left-click) with display/window, camera preview/device, microphone device, system audio controls
 - Right-click context menu preserved for library/settings/quit actions
-- Keyboard shortcut recorder widget (NSView-based, live capture)
 - Library view (AVPlayer preview, delete, rename, reveal in Finder)
-- Settings (Recording, Shortcuts, Storage, About tabs)
+- Settings (Recording, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording
 - Full-screen countdown overlay on all displays during pre-roll
 - User-facing runtime alert when selected display/window source disappears mid-recording
-- Global keyboard shortcuts via `NSEvent.addGlobalMonitorForEvents`
 - Login-at-launch via `SMAppService`
 - Testing infrastructure:
   - `MoolTests` + `MoolUITests` targets in `project.yml`
@@ -293,9 +283,8 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 
 ### Known gaps / next priorities
 1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has no images, only `Contents.json`. Add PNG assets at standard macOS sizes.
-2. **Shortcut conflict detection** — `WindowCoordinator.handleGlobalKeyEvent` does no conflict checking. If the user sets a shortcut that macOS already uses, it silently fails.
-3. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
-4. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and menu-interaction assumptions (left-click now opens quick recorder popover).
+2. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.
+3. **UI test flakiness** — UI tests now execute, but some cases are flaky due status item hit-testing and menu-interaction assumptions (left-click now opens quick recorder popover).
 
 ### Stretch / future features
 - Trim editor (in-app clip trimming via `AVAssetExportSession`)

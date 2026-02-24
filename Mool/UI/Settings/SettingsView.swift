@@ -11,9 +11,6 @@ struct SettingsView: View {
             RecordingSettingsTab(settings: engine.settings)
                 .tabItem { Label("Recording", systemImage: "record.circle") }
 
-            ShortcutsSettingsTab(settings: engine.settings)
-                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
-
             StorageSettingsTab(storageManager: storageManager, settings: engine.settings)
                 .tabItem { Label("Storage", systemImage: "internaldrive") }
 
@@ -47,7 +44,7 @@ struct RecordingSettingsTab: View {
                 Stepper(
                     "Countdown: \(settings.countdownDuration) sec",
                     value: $settings.countdownDuration,
-                    in: 0...10
+                    in: 0 ... 10
                 )
             }
 
@@ -76,42 +73,6 @@ struct RecordingSettingsTab: View {
         .onChange(of: settings.captureMicrophone) { _, _ in settings.save() }
         .onChange(of: settings.captureSystemAudio) { _, _ in settings.save() }
         .onChange(of: settings.launchAtLogin) { _, _ in settings.save() }
-    }
-}
-
-// MARK: - Shortcuts Settings Tab
-
-struct ShortcutsSettingsTab: View {
-    @Bindable var settings: RecordingSettings
-
-    var body: some View {
-        Form {
-            Section("Recording") {
-                ShortcutField(label: "Start / Stop", shortcut: $settings.shortcuts.startStop)
-                ShortcutField(label: "Pause / Resume", shortcut: $settings.shortcuts.pauseResume)
-            }
-
-            Section("Overlays") {
-                ShortcutField(label: "Toggle Annotation", shortcut: $settings.shortcuts.toggleAnnotation)
-                ShortcutField(label: "Toggle Camera Bubble", shortcut: $settings.shortcuts.toggleCamera)
-                ShortcutField(label: "Toggle Speaker Notes", shortcut: $settings.shortcuts.toggleSpeakerNotes)
-            }
-
-            Section {
-                EmptyView()
-            } footer: {
-                Text("Click a field, then press your desired key combination. Press Escape to cancel.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            }
-        }
-        .formStyle(.grouped)
-        .padding()
-        .onChange(of: settings.shortcuts.startStop.key) { _, _ in settings.save() }
-        .onChange(of: settings.shortcuts.pauseResume.key) { _, _ in settings.save() }
-        .onChange(of: settings.shortcuts.toggleAnnotation.key) { _, _ in settings.save() }
-        .onChange(of: settings.shortcuts.toggleCamera.key) { _, _ in settings.save() }
-        .onChange(of: settings.shortcuts.toggleSpeakerNotes.key) { _, _ in settings.save() }
     }
 }
 

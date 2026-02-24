@@ -86,7 +86,7 @@ Mool/
 │   ├── Library/
 │   │   └── LibraryView.swift       Browse + play local recordings
 │   ├── Settings/
-│   │   └── SettingsView.swift      Prefs: shortcuts, quality, storage path
+│   │   └── SettingsView.swift      Prefs: recording, storage, app info
 │   └── Onboarding/
 │       └── PermissionsView.swift   Step-by-step permission request UI
 └── Resources/
@@ -227,22 +227,6 @@ recording / paused ──stop()──▶ finishing ──onWriteComplete()──
 
 All state is published via `@Observable` so SwiftUI views and overlay panels update reactively.
 `WindowCoordinator` also hides overlays on an explicit stop request from the HUD so controls are removed immediately while writer finalization completes.
-
----
-
-## Keyboard Shortcuts
-
-Default shortcuts (user-configurable in Settings):
-
-| Action | Default |
-|---|---|
-| Start / Stop recording | ⌘⇧R |
-| Pause / Resume | ⌘⇧P |
-| Toggle annotation mode | ⌘⇧A |
-| Toggle camera bubble | ⌘⇧C |
-| Toggle speaker notes | ⌘⇧N |
-
-Implemented via `NSEvent.addGlobalMonitorForEvents(matching: .keyDown)`.
 
 ---
 

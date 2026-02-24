@@ -68,10 +68,6 @@ All reactive state uses `@Observable` (macOS 14+). Do not mix with `ObservableOb
 | Bind | `@Bindable var x` | `@ObservedObject` |
 | Own | `@State var x = MyClass()` | `@StateObject` |
 
-### Naming
-
-- Our custom shortcut type is **`RecordingShortcut`** (not `KeyboardShortcut` — that conflicts with SwiftUI's built-in).
-
 ### Overlay Windows
 
 All overlay `NSPanel`/`NSWindow` instances must be created with:
@@ -112,6 +108,5 @@ See `docs/TODO.md` for full list. Top items:
 
 1. **App icon** — `Assets.xcassets/AppIcon.appiconset` has only `Contents.json`. Need PNG assets at standard macOS sizes.
 2. **Display disconnect** — `screenCaptureManagerDidStop` calls `stopRecording()` but shows no user-facing error.
-3. **Shortcut conflict detection** — no warning when user-set shortcut conflicts with system shortcuts.
-4. **Camera resume gap** — ~300ms freeze in PiP after pause/resume.
-5. **Full-screen countdown overlay** — `RecordingState.countdown(secondsRemaining:)` exists but only consumed by the HUD, not a full-screen overlay.
+3. **Camera resume gap** — ~300ms freeze in PiP after pause/resume.
+4. **Full-screen countdown overlay** — `RecordingState.countdown(secondsRemaining:)` exists but only consumed by the HUD, not a full-screen overlay.

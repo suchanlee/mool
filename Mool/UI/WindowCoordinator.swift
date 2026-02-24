@@ -26,7 +26,6 @@ final class WindowCoordinator {
     init(recordingEngine: RecordingEngine) {
         self.recordingEngine = recordingEngine
         buildWindows()
-        setupGlobalShortcuts()
         startStateObservation()
     }
 
@@ -151,20 +150,6 @@ final class WindowCoordinator {
         }
     }
 
-    // MARK: - Global Keyboard Shortcuts
-
-    private func setupGlobalShortcuts() {
-        let settings = recordingEngine.settings
-
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return }
-            Task { @MainActor in
-                self.handleGlobalKeyEvent(event)
-            }
-        }
-        _ = settings // reference to trigger observation in future
-    }
-
     private func startStateObservation() {
         stateObserverTimer?.invalidate()
         stateObserverTimer = Timer.scheduledTimer(
@@ -214,36 +199,6 @@ final class WindowCoordinator {
     private func hideCountdownOverlay() {
         for overlay in countdownOverlayWindows where overlay.isVisible {
             overlay.orderOut(nil)
-        }
-    }
-
-    private func handleGlobalKeyEvent(_ event: NSEvent) {
-        let shortcuts = recordingEngine.settings.shortcuts
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-        func matches(_ shortcut: RecordingShortcut) -> Bool {
-            event.charactersIgnoringModifiers?.lowercased() == shortcut.key &&
-                flags == shortcut.modifiers.toNSEventModifiers()
-        }
-
-        if matches(shortcuts.startStop) {
-            if recordingEngine.state == .idle {
-                showSourcePicker()
-            } else {
-                Task { await recordingEngine.stopRecording(); hideOverlays() }
-            }
-        } else if matches(shortcuts.pauseResume) {
-            if recordingEngine.state == .recording {
-                recordingEngine.pauseRecording()
-            } else if recordingEngine.state == .paused {
-                recordingEngine.resumeRecording()
-            }
-        } else if matches(shortcuts.toggleAnnotation) {
-            annotationManager.isAnnotating.toggle()
-        } else if matches(shortcuts.toggleCamera) {
-            toggleCameraBubble()
-        } else if matches(shortcuts.toggleSpeakerNotes) {
-            toggleSpeakerNotes()
         }
     }
 

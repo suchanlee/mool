@@ -8,10 +8,9 @@ A local-only macOS screen recorder inspired by Loom. Record your screen, camera,
 
 - **Screen + Camera recording** — full display, specific window, or camera only
 - **Floating recording HUD** — non-activating overlay that never steals focus from the app you're recording
-- **Draggable camera bubble** — circular webcam overlay, resizable, movable anywhere
+- **Draggable camera bubble** — circular webcam overlay, movable anywhere with HUD size presets
 - **Live annotations** — draw on screen during recording; cursor highlight, spotlight, and click burst effects
 - **Speaker notes** — floating notes panel visible only to you
-- **Global keyboard shortcuts** — start, stop, pause, toggle annotation from any app
 - **Local library** — browse, preview, rename, and delete recordings via AVPlayer
 - **Menu bar app** — lives in the menu bar; icon pulses red while recording
 
@@ -101,26 +100,14 @@ On first launch, Mool shows an onboarding sheet that walks you through each perm
 
 | Action | How |
 |---|---|
-| Pause / Resume | Click ⏸ in the HUD, or use the keyboard shortcut |
-| Stop | Click ⏹ in the HUD, or use the keyboard shortcut |
-| Toggle annotation mode | Click ✏️ in the HUD or use the shortcut |
+| Pause / Resume | Click ⏸ in the HUD |
+| Stop | Click ⏹ in the HUD |
+| Toggle annotation mode | Click ✏️ in the HUD |
 | Draw on screen | Annotation mode on → drag to draw |
 | Erase strokes | Switch to eraser tool in the annotation toolbar |
 | Move camera bubble | Drag it anywhere on screen |
-| Resize camera bubble | Drag the corner resize handle |
+| Resize camera bubble | Use S/M/L size controls in the HUD |
 | Speaker notes | Open from the menu bar while recording |
-
-### Default keyboard shortcuts
-
-| Action | Shortcut |
-|---|---|
-| Start / Stop recording | ⌘⇧R |
-| Pause / Resume | ⌘⇧P |
-| Toggle annotation mode | ⌘⇧A |
-| Toggle camera bubble | ⌘⇧C |
-| Toggle speaker notes | ⌘⇧N |
-
-Shortcuts are configurable in **Mool → Settings → Shortcuts**.
 
 ### Finding your recordings
 
@@ -209,7 +196,6 @@ See [`docs/TODO.md`](docs/TODO.md) for the full task list. High-priority items:
 
 - [ ] App icon artwork (placeholder assets currently)
 - [ ] Handle display disconnect mid-recording
-- [ ] Keyboard shortcut conflict detection
 - [ ] Trim editor
 - [ ] Chapter markers
 - [ ] Automatic camera framing (Center Stage / face detection)
