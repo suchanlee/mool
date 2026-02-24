@@ -561,7 +561,7 @@ struct TrimTimelineStrip: View {
     let playheadTime: Double?
 
     private let handleVisualWidth: CGFloat = 18
-    private let handleHitAreaWidth: CGFloat = 40
+    private let handleHitAreaWidth: CGFloat = 44
     private let trackCornerRadius: CGFloat = 10
     private let horizontalPadding: CGFloat = 20
 
@@ -573,6 +573,7 @@ struct TrimTimelineStrip: View {
             let trackMinX = horizontalPadding
             let startX = trackMinX + CGFloat(startProgress) * trackWidth
             let endX = trackMinX + CGFloat(endProgress) * trackWidth
+            let stripMinXGlobal = proxy.frame(in: .global).minX
 
             ZStack(alignment: .leading) {
                 ZStack(alignment: .leading) {
@@ -609,15 +610,26 @@ struct TrimTimelineStrip: View {
                 handleHitArea(height: height)
                     .offset(x: startX - handleHitAreaWidth / 2)
                     .zIndex(3)
-                    .highPriorityGesture(startHandleDrag(trackMinX: trackMinX, trackWidth: trackWidth))
+                    .highPriorityGesture(
+                        startHandleDrag(
+                            stripMinXGlobal: stripMinXGlobal,
+                            trackMinX: trackMinX,
+                            trackWidth: trackWidth
+                        )
+                    )
 
                 handleHitArea(height: height)
                     .offset(x: endX - handleHitAreaWidth / 2)
                     .zIndex(3)
-                    .highPriorityGesture(endHandleDrag(trackMinX: trackMinX, trackWidth: trackWidth))
+                    .highPriorityGesture(
+                        endHandleDrag(
+                            stripMinXGlobal: stripMinXGlobal,
+                            trackMinX: trackMinX,
+                            trackWidth: trackWidth
+                        )
+                    )
             }
             .contentShape(Rectangle())
-            .coordinateSpace(name: "trimStrip")
         }
     }
 
@@ -659,17 +671,17 @@ struct TrimTimelineStrip: View {
 
     private func handleHitArea(height: CGFloat) -> some View {
         ZStack {
-            Color.clear
+            Color.black.opacity(0.001)
             handleView(height: height)
         }
-        .frame(width: handleHitAreaWidth, height: height)
+        .frame(width: handleHitAreaWidth, height: height + 10)
         .contentShape(Rectangle())
     }
 
     private func handleView(height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 5, style: .continuous)
             .fill(Color.yellow)
-            .frame(width: handleVisualWidth, height: max(height + 2, 24))
+            .frame(width: handleVisualWidth, height: max(height, 24))
             .overlay {
                 VStack(spacing: 3) {
                     Capsule(style: .continuous)
@@ -686,19 +698,29 @@ struct TrimTimelineStrip: View {
             .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
     }
 
-    private func startHandleDrag(trackMinX: CGFloat, trackWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named("trimStrip"))
+    private func startHandleDrag(
+        stripMinXGlobal: CGFloat,
+        trackMinX: CGFloat,
+        trackWidth: CGFloat
+    ) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
-                let progress = clamp(Double((value.location.x - trackMinX) / trackWidth), min: 0, max: 1)
+                let localX = value.location.x - stripMinXGlobal
+                let progress = clamp(Double((localX - trackMinX) / trackWidth), min: 0, max: 1)
                 let time = progress * duration
                 startTime = min(time, endTime - minimumSpan)
             }
     }
 
-    private func endHandleDrag(trackMinX: CGFloat, trackWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named("trimStrip"))
+    private func endHandleDrag(
+        stripMinXGlobal: CGFloat,
+        trackMinX: CGFloat,
+        trackWidth: CGFloat
+    ) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
-                let progress = clamp(Double((value.location.x - trackMinX) / trackWidth), min: 0, max: 1)
+                let localX = value.location.x - stripMinXGlobal
+                let progress = clamp(Double((localX - trackMinX) / trackWidth), min: 0, max: 1)
                 let time = progress * duration
                 endTime = max(time, startTime + minimumSpan)
             }

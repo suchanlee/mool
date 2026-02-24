@@ -98,6 +98,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Raise trim handles above timeline track and add live playhead progress indicator with play/pause icon sync
 - [x] Fix editor interactions: reliable end-handle dragging and full-surface click targets for play/save/cancel controls
 - [x] Align trim outline/handles with timeline height and restore reliable start-handle drag behavior
+- [x] Stabilize both trim-handle drags using global-coordinate mapping and expanded explicit hit zones
 
 ---
 
