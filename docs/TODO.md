@@ -94,6 +94,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add unified Library Edit mode to apply trim + playback speed and save a new edited version
 - [x] Replace trim sheet with timeline editor strip (thumbnail rail + drag handles + save/cancel actions)
 - [x] Polish editor layout alignment (uniform control widths/heights) and improve trim handle visibility/drag reliability
+- [x] Normalize editor button sizing while keeping full-width aligned controls
 
 ---
 

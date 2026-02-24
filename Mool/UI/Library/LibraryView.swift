@@ -170,9 +170,9 @@ struct VideoDetailView: View {
 
     private let minimumTrimSpan: Double = 0.1
     private let playbackRateOptions: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
-    private let editControlRowHeight: CGFloat = 40
-    private let editControlSpacing: CGFloat = 10
-    private let editControlColumnWidth: CGFloat = 170
+    private let editControlRowHeight: CGFloat = 32
+    private let editControlSpacing: CGFloat = 8
+    private let editControlColumnWidth: CGFloat = 145
 
     private var timelineHeight: CGFloat {
         (editControlRowHeight * 3) + (editControlSpacing * 2)
@@ -272,7 +272,7 @@ struct VideoDetailView: View {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 11, weight: .semibold))
                         }
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
                         .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -287,7 +287,7 @@ struct VideoDetailView: View {
                         saveEditedVersion()
                     } label: {
                         Text(isSavingEdit ? "Saving..." : "Save")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
                     }
                     .buttonStyle(.borderedProminent)
@@ -298,7 +298,7 @@ struct VideoDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isSavingEdit)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
                 }
                 .frame(width: editControlColumnWidth, height: timelineHeight, alignment: .top)
