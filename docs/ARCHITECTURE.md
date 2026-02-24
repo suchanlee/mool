@@ -126,7 +126,7 @@ User clicks menu bar status item
               Writer output dimensions are matched to SCStream source dimensions
               (screen/window content rect with the same 2x scaling)
               Receives screen video → adapts to AVAssetWriter input
-              Receives camera frames → composites as circular PiP bubble overlay
+              In screen mode, avoids extra camera compositing so only the on-screen camera bubble is captured
               Receives audio → writes AAC track
               On stop → finishes writing → emits file URL
 

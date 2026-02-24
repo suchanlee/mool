@@ -7,12 +7,16 @@ import SwiftUI
 /// Circular camera preview with drag support and a corner resize handle.
 struct CameraBubbleView: View {
     let cameraManager: any CameraManaging
-    let onMoveBy: (_ deltaX: CGFloat, _ deltaY: CGFloat) -> Void
-    let onResizeBy: (_ delta: CGFloat) -> Void
+    let onMoveBegan: (_ mouseLocationInScreen: NSPoint) -> Void
+    let onMoveChanged: (_ mouseLocationInScreen: NSPoint) -> Void
+    let onMoveEnded: () -> Void
+    let onResizeBegan: (_ mouseLocationInScreen: NSPoint) -> Void
+    let onResizeChanged: (_ mouseLocationInScreen: NSPoint) -> Void
+    let onResizeEnded: () -> Void
 
     @State private var isDraggingResize = false
-    @State private var lastMoveTranslation: CGSize = .zero
-    @State private var lastResizeTranslation: CGSize = .zero
+    @State private var hasStartedMoveDrag = false
+    @State private var hasStartedResizeDrag = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -37,31 +41,36 @@ struct CameraBubbleView: View {
 
     private var moveGesture: some Gesture {
         DragGesture(minimumDistance: 0)
-            .onChanged { value in
+            .onChanged { _ in
                 guard !isDraggingResize else { return }
-                let stepX = value.translation.width - lastMoveTranslation.width
-                let stepY = value.translation.height - lastMoveTranslation.height
-                lastMoveTranslation = value.translation
-                onMoveBy(stepX, stepY)
+                let mouse = NSEvent.mouseLocation
+                if !hasStartedMoveDrag {
+                    hasStartedMoveDrag = true
+                    onMoveBegan(mouse)
+                }
+                onMoveChanged(mouse)
             }
             .onEnded { _ in
-                lastMoveTranslation = .zero
+                hasStartedMoveDrag = false
+                onMoveEnded()
             }
     }
 
     private var resizeGesture: some Gesture {
         DragGesture(minimumDistance: 0)
-            .onChanged { value in
+            .onChanged { _ in
                 isDraggingResize = true
-                let stepX = value.translation.width - lastResizeTranslation.width
-                let stepY = value.translation.height - lastResizeTranslation.height
-                lastResizeTranslation = value.translation
-                let delta = (stepX + stepY) / 2
-                onResizeBy(delta)
+                let mouse = NSEvent.mouseLocation
+                if !hasStartedResizeDrag {
+                    hasStartedResizeDrag = true
+                    onResizeBegan(mouse)
+                }
+                onResizeChanged(mouse)
             }
             .onEnded { _ in
                 isDraggingResize = false
-                lastResizeTranslation = .zero
+                hasStartedResizeDrag = false
+                onResizeEnded()
             }
     }
 }

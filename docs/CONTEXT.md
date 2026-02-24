@@ -77,7 +77,7 @@ mool/
         │   ├── ControlPanelWindow.swift    NSPanel (.nonactivatingPanel) — never steals focus
         │   ├── ControlPanelView.swift      HUD: rec indicator, timer, pause/stop, annotation toolbar
         │   ├── CameraBubbleWindow.swift    Borderless NSPanel; draggable
-        │   ├── CameraBubbleView.swift      Circular cam preview + gesture-driven move/resize handle
+        │   ├── CameraBubbleView.swift      Circular cam preview + screen-space anchored move/resize gestures
         │   ├── AnnotationOverlayWindow.swift  Full-screen transparent NSWindow for drawing
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
@@ -254,7 +254,7 @@ All overlay windows share these properties set at creation time:
 The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-through). `AnnotationManager.isAnnotating` toggles this via the `overlayWindow` weak reference.
 
 The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
-The **CameraBubbleWindow** move and resize behavior is handled explicitly by SwiftUI drag gestures in `CameraBubbleView`, which mutate the panel frame directly (including size clamping and visible-frame clamping).
+The **CameraBubbleWindow** move and resize behavior is handled by screen-space anchored gestures in `CameraBubbleView` that update the panel frame directly (1:1 drag feel, reduced jitter, size clamping, visible-frame clamping).
 
 The **CountdownOverlayWindow** is borderless, click-through, and shown on each connected display while `RecordingEngine.state` is `.countdown`.
 

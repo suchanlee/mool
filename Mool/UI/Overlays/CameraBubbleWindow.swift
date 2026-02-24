@@ -7,6 +7,10 @@ import SwiftUI
 final class CameraBubbleWindow: NSPanel {
     private let minimumBubbleSize: CGFloat = 100
     private let maximumBubbleSize: CGFloat = 400
+    private var moveAnchorMouseLocation: NSPoint?
+    private var moveAnchorFrame: NSRect?
+    private var resizeAnchorMouseLocation: NSPoint?
+    private var resizeAnchorFrame: NSRect?
 
     override var canBecomeKey: Bool {
         true
@@ -32,11 +36,23 @@ final class CameraBubbleWindow: NSPanel {
 
         let view = CameraBubbleView(
             cameraManager: cameraManager,
-            onMoveBy: { [weak self] deltaX, deltaY in
-                self?.moveBy(deltaX: deltaX, deltaY: deltaY)
+            onMoveBegan: { [weak self] mouseLocation in
+                self?.beginMove(at: mouseLocation)
             },
-            onResizeBy: { [weak self] delta in
-                self?.resizeBy(delta: delta)
+            onMoveChanged: { [weak self] mouseLocation in
+                self?.move(to: mouseLocation)
+            },
+            onMoveEnded: { [weak self] in
+                self?.endMove()
+            },
+            onResizeBegan: { [weak self] mouseLocation in
+                self?.beginResize(at: mouseLocation)
+            },
+            onResizeChanged: { [weak self] mouseLocation in
+                self?.resize(to: mouseLocation)
+            },
+            onResizeEnded: { [weak self] in
+                self?.endResize()
             }
         )
         contentView = NSHostingView(rootView: view)
@@ -50,24 +66,59 @@ final class CameraBubbleWindow: NSPanel {
         }
     }
 
-    private func moveBy(deltaX: CGFloat, deltaY: CGFloat) {
-        var nextFrame = frame
+    private func beginMove(at mouseLocation: NSPoint) {
+        moveAnchorMouseLocation = mouseLocation
+        moveAnchorFrame = frame
+    }
+
+    private func move(to mouseLocation: NSPoint) {
+        guard let anchorMouse = moveAnchorMouseLocation, let anchorFrame = moveAnchorFrame else { return }
+        let deltaX = mouseLocation.x - anchorMouse.x
+        let deltaY = mouseLocation.y - anchorMouse.y
+
+        var nextFrame = anchorFrame
         nextFrame.origin.x += deltaX
-        nextFrame.origin.y -= deltaY
+        nextFrame.origin.y += deltaY
         setFrame(clampedToVisibleFrame(nextFrame), display: true)
     }
 
-    private func resizeBy(delta: CGFloat) {
-        var nextFrame = frame
-        let targetSize = min(max(nextFrame.width + delta, minimumBubbleSize), maximumBubbleSize)
-        let appliedDelta = targetSize - nextFrame.width
-        guard abs(appliedDelta) > 0.01 else { return }
+    private func endMove() {
+        moveAnchorMouseLocation = nil
+        moveAnchorFrame = nil
+    }
 
+    private func beginResize(at mouseLocation: NSPoint) {
+        resizeAnchorMouseLocation = mouseLocation
+        resizeAnchorFrame = frame
+    }
+
+    private func resize(to mouseLocation: NSPoint) {
+        guard let anchorMouse = resizeAnchorMouseLocation, let anchorFrame = resizeAnchorFrame else { return }
+        let deltaX = mouseLocation.x - anchorMouse.x
+        let deltaY = mouseLocation.y - anchorMouse.y
+        let sizeDelta = max(deltaX, -deltaY)
+
+        let maxSizeByBounds: CGFloat = {
+            guard let visible = activeVisibleFrame() else { return maximumBubbleSize }
+            // Keep top-left fixed while resizing from bottom-right.
+            let availableToRight = visible.maxX - anchorFrame.minX
+            let availableToBottom = anchorFrame.maxY - visible.minY
+            return min(maximumBubbleSize, availableToRight, availableToBottom)
+        }()
+
+        let targetSize = min(max(anchorFrame.width + sizeDelta, minimumBubbleSize), maxSizeByBounds)
+        guard abs(targetSize - anchorFrame.width) > 0.01 else { return }
+
+        var nextFrame = anchorFrame
         nextFrame.size = NSSize(width: targetSize, height: targetSize)
-        // Grow/shrink from bottom-right drag while keeping top edge anchored.
-        nextFrame.origin.y -= appliedDelta
+        nextFrame.origin.y = anchorFrame.maxY - targetSize
 
         setFrame(clampedToVisibleFrame(nextFrame), display: true)
+    }
+
+    private func endResize() {
+        resizeAnchorMouseLocation = nil
+        resizeAnchorFrame = nil
     }
 
     private func clampedToVisibleFrame(_ candidate: NSRect) -> NSRect {

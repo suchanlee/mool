@@ -311,9 +311,15 @@ final class RecordingEngine {
             cameraManager.isMirrored = settings.mirrorCamera
             cameraManager.startCapture()
 
-            // Route camera frames directly to the writer (called on capture queue)
-            cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, _: CMTime) in
-                self?.videoWriter?.updateCameraFrame(pixelBuffer)
+            if settings.mode.includesScreen {
+                // In screen recording mode, the camera bubble is captured as part of the screen.
+                // Avoid compositing a second camera PiP into the writer.
+                cameraManager.setFrameHandler(nil)
+            } else {
+                // Route camera frames directly to the writer (called on capture queue)
+                cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, _: CMTime) in
+                    self?.videoWriter?.updateCameraFrame(pixelBuffer)
+                }
             }
         }
 
