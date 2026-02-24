@@ -263,9 +263,15 @@ struct VideoDetailView: View {
 
                 VStack(spacing: editControlSpacing) {
                     Menu {
-                        Picker("Speed", selection: $editPlaybackRate) {
-                            ForEach(playbackRateOptions, id: \.self) { rate in
-                                Text(Self.speedLabel(rate)).tag(rate)
+                        ForEach(playbackRateOptions, id: \.self) { rate in
+                            Button {
+                                editPlaybackRate = rate
+                            } label: {
+                                if editPlaybackRate == rate {
+                                    Label(Self.speedLabel(rate), systemImage: "checkmark")
+                                } else {
+                                    Text(Self.speedLabel(rate))
+                                }
                             }
                         }
                     } label: {
