@@ -11,6 +11,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let quickRecorderPopover = NSPopover()
     private var stateObserverTimer: Timer?
     private var quickPreviewTask: Task<Void, Never>?
+    private var lastHandledCompletedRecordingURL: URL?
 
     private unowned let recordingEngine: RecordingEngine
     private unowned let windowCoordinator: WindowCoordinator
@@ -45,7 +46,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        quickRecorderPopover.behavior = .transient
+        // Keep popover open while interacting with the floating camera bubble.
+        quickRecorderPopover.behavior = .applicationDefined
         quickRecorderPopover.animates = true
         quickRecorderPopover.delegate = self
         buildMenu()
@@ -89,6 +91,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
                 self?.updateMenuState()
                 self?.updateStatusIcon()
                 self?.showPendingRuntimeErrorIfNeeded()
+                self?.openLibraryForCompletedRecordingIfNeeded()
             }
         }
     }
@@ -230,6 +233,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.runModal()
+    }
+
+    private func openLibraryForCompletedRecordingIfNeeded() {
+        guard recordingEngine.state == .idle else { return }
+        guard let completedURL = recordingEngine.lastCompletedURL else { return }
+        guard completedURL != lastHandledCompletedRecordingURL else { return }
+
+        lastHandledCompletedRecordingURL = completedURL
+        openLibrary()
     }
 
     private func showError(_ error: Error) {

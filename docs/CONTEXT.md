@@ -128,6 +128,7 @@ AppDelegate
 2. Entry paths:
    - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
      - While the popover is open, `MenuBarController` prepares quick-recorder context and shows `CameraBubbleWindow` as the preview surface.
+     - Popover behavior is app-defined so interacting with the camera bubble (move/resize) does not auto-dismiss it.
      - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
    - Keyboard shortcut: `WindowCoordinator.showSourcePicker()` opens full source picker.
@@ -144,6 +145,7 @@ AppDelegate
 5. `WindowCoordinator` shows recording overlays; during countdown it also shows a full-screen `CountdownOverlayWindow` per display.
 6. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
 7. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
+8. When recording finishes successfully and state returns to idle, `MenuBarController` auto-opens Library so the new recording is immediately visible.
 8. If capture stops unexpectedly (display/window unavailable), `RecordingEngine` stops recording and exposes a runtime error message consumed by `MenuBarController` for a user-facing alert.
 
 ---

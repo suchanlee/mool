@@ -105,6 +105,7 @@ User clicks menu bar status item
       ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
       │               Popover show/close drives quick preview lifecycle:
       │               open => prepareQuickRecorderContext() + show CameraBubbleWindow
+      │               interaction => bubble move/resize does not dismiss popover
       │               close => teardownQuickRecorderContext() + hide quick preview bubble
       └─ Right click → context menu
                  │
@@ -125,9 +126,11 @@ User clicks menu bar status item
               Writer output dimensions are matched to SCStream source dimensions
               (screen/window content rect with the same 2x scaling)
               Receives screen video → adapts to AVAssetWriter input
-              Receives camera frames → composites as PiP overlay
+              Receives camera frames → composites as circular PiP bubble overlay
               Receives audio → writes AAC track
               On stop → finishes writing → emits file URL
+
+After a successful recording stops, the menu bar controller opens the Library window automatically.
 
 Countdown behavior:
 - `RecordingEngine.state = .countdown(secondsRemaining:)` before capture starts.
