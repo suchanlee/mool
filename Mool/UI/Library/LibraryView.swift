@@ -571,8 +571,14 @@ struct TrimTimelineStrip: View {
             let height = max(proxy.size.height, 1)
             let trackWidth = max(width - horizontalPadding * 2, 1)
             let trackMinX = horizontalPadding
+            let trackMaxX = trackMinX + trackWidth
             let startX = trackMinX + CGFloat(startProgress) * trackWidth
             let endX = trackMinX + CGFloat(endProgress) * trackWidth
+            let startHandleX = max(trackMinX, startX - handleVisualWidth / 2)
+            let endHandleX = min(trackMaxX - handleVisualWidth, endX - handleVisualWidth / 2)
+            let hitInset = (handleHitAreaWidth - handleVisualWidth) / 2
+            let startHitX = max(trackMinX, startHandleX - hitInset)
+            let endHitX = min(trackMaxX - handleHitAreaWidth, endHandleX - hitInset)
             let stripMinXGlobal = proxy.frame(in: .global).minX
 
             ZStack(alignment: .leading) {
@@ -607,8 +613,16 @@ struct TrimTimelineStrip: View {
                 .offset(x: trackMinX)
                 .zIndex(0)
 
+                handleView(height: height)
+                    .offset(x: startHandleX)
+                    .zIndex(2)
+
+                handleView(height: height)
+                    .offset(x: endHandleX)
+                    .zIndex(2)
+
                 handleHitArea(height: height)
-                    .offset(x: startX - handleHitAreaWidth / 2)
+                    .offset(x: startHitX)
                     .zIndex(3)
                     .highPriorityGesture(
                         startHandleDrag(
@@ -619,7 +633,7 @@ struct TrimTimelineStrip: View {
                     )
 
                 handleHitArea(height: height)
-                    .offset(x: endX - handleHitAreaWidth / 2)
+                    .offset(x: endHitX)
                     .zIndex(3)
                     .highPriorityGesture(
                         endHandleDrag(
@@ -670,12 +684,9 @@ struct TrimTimelineStrip: View {
     }
 
     private func handleHitArea(height: CGFloat) -> some View {
-        ZStack {
-            Color.black.opacity(0.001)
-            handleView(height: height)
-        }
-        .frame(width: handleHitAreaWidth, height: height + 10)
-        .contentShape(Rectangle())
+        Color.black.opacity(0.001)
+            .frame(width: handleHitAreaWidth, height: height + 10)
+            .contentShape(Rectangle())
     }
 
     private func handleView(height: CGFloat) -> some View {
