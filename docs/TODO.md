@@ -93,6 +93,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add playback speed controls in the library viewer (0.5x–2.0x)
 - [x] Add unified Library Edit mode to apply trim + playback speed and save a new edited version
 - [x] Replace trim sheet with timeline editor strip (thumbnail rail + drag handles + save/cancel actions)
+- [x] Polish editor layout alignment (uniform control widths/heights) and improve trim handle visibility/drag reliability
 
 ---
 

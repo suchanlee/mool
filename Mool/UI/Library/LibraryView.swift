@@ -170,6 +170,13 @@ struct VideoDetailView: View {
 
     private let minimumTrimSpan: Double = 0.1
     private let playbackRateOptions: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+    private let editControlRowHeight: CGFloat = 40
+    private let editControlSpacing: CGFloat = 10
+    private let editControlColumnWidth: CGFloat = 170
+
+    private var timelineHeight: CGFloat {
+        (editControlRowHeight * 3) + (editControlSpacing * 2)
+    }
 
     private var totalDuration: Double {
         let recordedDuration = recording.duration ?? 0
@@ -225,16 +232,21 @@ struct VideoDetailView: View {
 
     private var editOverlay: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Button {
                     togglePlayPauseInEditor()
                 } label: {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .buttonStyle(.plain)
-                .background(Color.white.opacity(0.12), in: Circle())
+                .frame(width: 64, height: timelineHeight)
+                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                )
 
                 TrimTimelineStrip(
                     thumbnails: thumbnails,
@@ -243,9 +255,9 @@ struct VideoDetailView: View {
                     endTime: $editEnd,
                     minimumSpan: minimumTrimSpan
                 )
-                .frame(height: 66)
+                .frame(maxWidth: .infinity, minHeight: timelineHeight, maxHeight: timelineHeight)
 
-                VStack(alignment: .trailing, spacing: 8) {
+                VStack(spacing: editControlSpacing) {
                     Menu {
                         Picker("Speed", selection: $editPlaybackRate) {
                             ForEach(playbackRateOptions, id: \.self) { rate in
@@ -253,17 +265,30 @@ struct VideoDetailView: View {
                             }
                         }
                     } label: {
-                        Label(Self.speedLabel(editPlaybackRate), systemImage: "speedometer")
-                            .font(.system(size: 12, weight: .semibold))
-                            .frame(width: 100)
+                        HStack(spacing: 8) {
+                            Image(systemName: "speedometer")
+                            Text(Self.speedLabel(editPlaybackRate))
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
+                        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                        )
                     }
-                    .menuStyle(.button)
+                    .buttonStyle(.plain)
 
                     Button {
                         saveEditedVersion()
                     } label: {
                         Text(isSavingEdit ? "Saving..." : "Save")
-                            .frame(width: 100)
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isSavingEdit || !canSaveEdit)
@@ -273,8 +298,10 @@ struct VideoDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isSavingEdit)
-                    .frame(width: 100)
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
                 }
+                .frame(width: editControlColumnWidth, height: timelineHeight, alignment: .top)
             }
 
             HStack {
@@ -475,7 +502,16 @@ struct TrimTimelineStrip: View {
     @Binding var endTime: Double
     let minimumSpan: Double
 
-    private let handleWidth: CGFloat = 18
+    @State private var activeHandle: DragHandle?
+
+    private enum DragHandle {
+        case start
+        case end
+    }
+
+    private let handleVisualWidth: CGFloat = 16
+    private let handleHitThreshold: CGFloat = 26
+    private let trackCornerRadius: CGFloat = 10
 
     var body: some View {
         GeometryReader { proxy in
@@ -485,7 +521,11 @@ struct TrimTimelineStrip: View {
             let endX = CGFloat(endProgress) * width
 
             ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous)
+                    .fill(Color.black.opacity(0.25))
+
                 thumbnailTrack(width: width, height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous))
 
                 Color.black.opacity(0.45)
                     .frame(width: max(startX, 0), height: height)
@@ -499,31 +539,15 @@ struct TrimTimelineStrip: View {
                     .frame(width: max(endX - startX, 18), height: max(height - 2, 1))
                     .offset(x: startX)
 
-                Capsule(style: .continuous)
-                    .fill(Color.yellow)
-                    .frame(width: 4, height: max(height - 10, 1))
-                    .offset(x: startX - 2, y: 5)
+                handleView(height: height)
+                    .offset(x: startX - handleVisualWidth / 2, y: 4)
 
-                Capsule(style: .continuous)
-                    .fill(Color.yellow)
-                    .frame(width: 4, height: max(height - 10, 1))
-                    .offset(x: endX - 2, y: 5)
-
-                Rectangle()
-                    .fill(.clear)
-                    .frame(width: handleWidth, height: height)
-                    .offset(x: startX - handleWidth / 2)
-                    .contentShape(Rectangle())
-                    .gesture(startHandleDrag(width: width))
-
-                Rectangle()
-                    .fill(.clear)
-                    .frame(width: handleWidth, height: height)
-                    .offset(x: endX - handleWidth / 2)
-                    .contentShape(Rectangle())
-                    .gesture(endHandleDrag(width: width))
+                handleView(height: height)
+                    .offset(x: endX - handleVisualWidth / 2, y: 4)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous))
+            .contentShape(Rectangle())
+            .highPriorityGesture(trimDragGesture(width: width, startX: startX, endX: endX))
         }
     }
 
@@ -563,19 +587,51 @@ struct TrimTimelineStrip: View {
         }
     }
 
-    private func startHandleDrag(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                let proposed = clamp(Double(value.location.x / width) * duration, min: 0, max: endTime - minimumSpan)
-                startTime = proposed
+    private func handleView(height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(Color.yellow)
+            .frame(width: handleVisualWidth, height: max(height - 8, 24))
+            .overlay {
+                VStack(spacing: 3) {
+                    Capsule(style: .continuous)
+                        .fill(Color.black.opacity(0.35))
+                        .frame(width: 7, height: 2)
+                    Capsule(style: .continuous)
+                        .fill(Color.black.opacity(0.35))
+                        .frame(width: 7, height: 2)
+                    Capsule(style: .continuous)
+                        .fill(Color.black.opacity(0.35))
+                        .frame(width: 7, height: 2)
+                }
             }
+            .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
     }
 
-    private func endHandleDrag(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+    private func trimDragGesture(width: CGFloat, startX: CGFloat, endX: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
-                let proposed = clamp(Double(value.location.x / width) * duration, min: startTime + minimumSpan, max: duration)
-                endTime = proposed
+                if activeHandle == nil {
+                    let startDistance = abs(value.startLocation.x - startX)
+                    let endDistance = abs(value.startLocation.x - endX)
+
+                    guard min(startDistance, endDistance) <= handleHitThreshold else { return }
+                    activeHandle = startDistance <= endDistance ? .start : .end
+                }
+
+                guard let activeHandle else { return }
+
+                let progress = clamp(Double(value.location.x / width), min: 0, max: 1)
+                let time = progress * duration
+
+                switch activeHandle {
+                case .start:
+                    startTime = min(time, endTime - minimumSpan)
+                case .end:
+                    endTime = max(time, startTime + minimumSpan)
+                }
+            }
+            .onEnded { _ in
+                activeHandle = nil
             }
     }
 
