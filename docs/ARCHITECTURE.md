@@ -84,7 +84,7 @@ Mool/
 │   │   ├── SpeakerNotesWindow.swift    Floating notes NSPanel
 │   │   └── CountdownOverlayWindow.swift Full-screen countdown splash
 │   ├── Library/
-│   │   └── LibraryView.swift       Browse + play local recordings, show duration, trim clips
+│   │   └── LibraryView.swift       Browse + play local recordings, show duration, trim clips, adjust playback speed
 │   ├── Settings/
 │   │   └── SettingsView.swift      Prefs: recording, storage, app info
 │   └── Onboarding/
@@ -215,6 +215,7 @@ File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
 Library playback behavior:
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
 - Trim action opens a range editor (start/end sliders) and saves a new `_trimmed` recording in the same directory.
+- Playback speed can be switched in-viewer (0.5x, 1x, 1.25x, 1.5x, 2x) and applies immediately while playing.
 
 ---
 

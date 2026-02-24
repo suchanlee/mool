@@ -90,6 +90,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Copy file path / reveal in Finder actions
 - [x] Show recording duration metadata in library list items
 - [x] Trim recordings from the library viewer using start/end range export
+- [x] Add playback speed controls in the library viewer (0.5x–2.0x)
 
 ---
 

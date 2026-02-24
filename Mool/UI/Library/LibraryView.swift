@@ -12,6 +12,9 @@ struct LibraryView: View {
     @State private var renamingRecording: SavedRecording?
     @State private var trimmingRecording: SavedRecording?
     @State private var player: AVPlayer?
+    @State private var playbackRate: Double = 1.0
+
+    private let playbackRateOptions: [Double] = [0.5, 1.0, 1.25, 1.5, 2.0]
 
     var body: some View {
         NavigationSplitView {
@@ -28,7 +31,7 @@ struct LibraryView: View {
         } detail: {
             // Detail: video player
             if let recording = selectedRecording {
-                VideoDetailView(recording: recording, player: $player)
+                VideoDetailView(recording: recording, player: $player, playbackRate: $playbackRate)
                     .toolbar {
                         recordingToolbar(recording)
                     }
@@ -74,6 +77,16 @@ struct LibraryView: View {
     @ToolbarContentBuilder
     private func recordingToolbar(_ recording: SavedRecording) -> some ToolbarContent {
         ToolbarItemGroup {
+            Menu {
+                Picker("Playback Speed", selection: $playbackRate) {
+                    ForEach(playbackRateOptions, id: \.self) { rate in
+                        Text(Self.speedLabel(rate)).tag(rate)
+                    }
+                }
+            } label: {
+                Label(Self.speedLabel(playbackRate), systemImage: "speedometer")
+            }
+
             Button("Rename") {
                 renamingRecording = recording
             }
@@ -103,6 +116,13 @@ struct LibraryView: View {
                 Text("This moves the file to the Trash.")
             }
         }
+    }
+
+    private static func speedLabel(_ rate: Double) -> String {
+        if rate.rounded() == rate {
+            return "\(Int(rate))x"
+        }
+        return "\(rate.formatted(.number.precision(.fractionLength(0 ... 2))))x"
     }
 }
 
@@ -144,11 +164,15 @@ struct RecordingRow: View {
 struct VideoDetailView: View {
     let recording: SavedRecording
     @Binding var player: AVPlayer?
+    @Binding var playbackRate: Double
 
     var body: some View {
         VideoPlayer(player: player)
             .task(id: recording.url) {
                 loadRecording(recording.url)
+            }
+            .onChange(of: playbackRate) { _, _ in
+                applyPlaybackRateIfPlaying()
             }
             .onDisappear {
                 player?.pause()
@@ -164,7 +188,13 @@ struct VideoDetailView: View {
             player?.replaceCurrentItem(with: AVPlayerItem(url: url))
         }
         player?.seek(to: .zero)
-        player?.play()
+        player?.playImmediately(atRate: Float(playbackRate))
+    }
+
+    @MainActor
+    private func applyPlaybackRateIfPlaying() {
+        guard let player, player.timeControlStatus == .playing else { return }
+        player.playImmediately(atRate: Float(playbackRate))
     }
 }
 
