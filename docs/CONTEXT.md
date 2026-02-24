@@ -69,7 +69,7 @@ mool/
         ├── WindowCoordinator.swift     Owns all overlay NSPanels; handles global keyboard shortcuts
         ├── MenuBar/
         │   ├── MenuBarController.swift NSStatusItem; left-click quick recorder, right-click context menu
-        │   └── QuickRecorderPopoverView.swift  Loom-style source/camera/audio quick controls
+        │   └── QuickRecorderPopoverView.swift  Loom-style rounded source/camera/audio quick controls with pill toggles
         ├── SourcePicker/
         │   ├── SourcePickerView.swift  Pre-recording SwiftUI sheet (mode/display/window/quality)
         │   └── SourcePickerController.swift  Presents SourcePickerView as NSWindow

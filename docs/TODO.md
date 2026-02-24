@@ -107,6 +107,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Auto-open Library after a recording finishes successfully
 - [x] Rework camera bubble drag/resize interaction for 1:1 movement and reliable resize behavior
 - [x] Fix Library preview player to switch correctly when a different recording is selected
+- [x] Redesign quick recorder popover with rounded row controls and remove top-right utility buttons
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
 - [x] Multiple display support — display picker in source picker UI
 - [x] Window capture mode UI — window picker in source picker UI

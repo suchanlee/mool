@@ -196,8 +196,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
         let view = QuickRecorderPopoverView(
             onStartRecording: { [weak self] in self?.startRecording() },
-            onOpenLibrary: { [weak self] in self?.openLibrary() },
-            onOpenSettings: { [weak self] in self?.openSettings() },
             onCameraVisibilityChanged: { [weak self] in self?.windowCoordinator.refreshQuickPreviewBubble() }
         )
         .environment(recordingEngine)
