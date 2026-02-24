@@ -20,6 +20,7 @@ final class WindowCoordinator {
     private var stateObserverTimer: Timer?
     private var lastObservedState: RecordingState = .idle
     private var showsQuickPreviewBubble = false
+    private var isDraggingCameraBubble = false
 
     // MARK: - Init
 
@@ -51,6 +52,14 @@ final class WindowCoordinator {
         cameraBubbleWindow = CameraBubbleWindow(
             cameraManager: recordingEngine.cameraManager
         )
+        cameraBubbleWindow?.onFrameChanged = { [weak self] in
+            self?.updateBubbleAttachedHUD()
+        }
+        cameraBubbleWindow?.onMoveStateChanged = { [weak self] isMoving in
+            guard let self else { return }
+            isDraggingCameraBubble = isMoving
+            updateBubbleAttachedHUD()
+        }
 
         let overlayWin = AnnotationOverlayWindow(
             screen: screen,
@@ -228,6 +237,15 @@ final class WindowCoordinator {
 
         if bubble.isVisible {
             positionControlPanelBelowBubble()
+
+            // During active bubble drag, hide HUD to avoid detached/lagging visuals.
+            if isDraggingCameraBubble {
+                if controlPanel.isVisible {
+                    controlPanel.orderOut(nil)
+                }
+                return
+            }
+
             let mouse = NSEvent.mouseLocation
             let shouldShowHUD = bubble.frame.contains(mouse) || controlPanel.frame.contains(mouse)
 

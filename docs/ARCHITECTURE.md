@@ -168,7 +168,7 @@ All overlay windows share these properties:
 
 | Window | Type | Interaction |
 |---|---|---|
-| ControlPanelWindow | NSPanel, `.nonactivatingPanel` | In camera mode, anchored below camera bubble and shown only while hovering bubble/HUD; otherwise shown as standalone HUD |
+| ControlPanelWindow | NSPanel, `.nonactivatingPanel` | In camera mode, anchored below camera bubble and shown only while hovering bubble/HUD; hidden while actively dragging bubble; otherwise shown as standalone HUD |
 | CameraBubbleWindow | NSPanel, borderless | Draggable via explicit SwiftUI gesture updates; size is controlled by HUD presets (Small/Medium/Large); uses circular-only shadow (no square panel shadow artifact) |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |

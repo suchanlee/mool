@@ -29,6 +29,8 @@ enum CameraBubbleSizePreset: String, CaseIterable {
 final class CameraBubbleWindow: NSPanel {
     private var moveAnchorMouseLocation: NSPoint?
     private var moveAnchorFrame: NSRect?
+    var onFrameChanged: (() -> Void)?
+    var onMoveStateChanged: ((Bool) -> Void)?
 
     override var canBecomeKey: Bool {
         true
@@ -78,6 +80,7 @@ final class CameraBubbleWindow: NSPanel {
     private func beginMove(at mouseLocation: NSPoint) {
         moveAnchorMouseLocation = mouseLocation
         moveAnchorFrame = frame
+        onMoveStateChanged?(true)
     }
 
     private func move(to mouseLocation: NSPoint) {
@@ -88,12 +91,18 @@ final class CameraBubbleWindow: NSPanel {
         var nextFrame = anchorFrame
         nextFrame.origin.x += deltaX
         nextFrame.origin.y += deltaY
-        setFrame(clampedToVisibleFrame(nextFrame), display: true)
+        let clamped = clampedToVisibleFrame(nextFrame)
+        if !frame.equalTo(clamped) {
+            setFrame(clamped, display: true)
+            onFrameChanged?()
+        }
     }
 
     private func endMove() {
         moveAnchorMouseLocation = nil
         moveAnchorFrame = nil
+        onMoveStateChanged?(false)
+        onFrameChanged?()
     }
 
     private func clampedToVisibleFrame(_ candidate: NSRect) -> NSRect {
@@ -124,7 +133,10 @@ final class CameraBubbleWindow: NSPanel {
             height: targetSize
         )
         nextFrame = clampedToVisibleFrame(nextFrame)
-        setFrame(nextFrame, display: true, animate: false)
+        if !frame.equalTo(nextFrame) {
+            setFrame(nextFrame, display: true, animate: false)
+            onFrameChanged?()
+        }
     }
 
     func currentSizePreset() -> CameraBubbleSizePreset {

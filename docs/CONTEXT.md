@@ -250,7 +250,7 @@ All overlay windows share these properties set at creation time:
 The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-through). `AnnotationManager.isAnnotating` toggles this via the `overlayWindow` weak reference.
 
 The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
-In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD.
+In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD; while actively dragging the bubble, the HUD is temporarily hidden.
 The **CameraBubbleWindow** move behavior is handled by screen-space anchored gestures in `CameraBubbleView` that update the panel frame directly (1:1 drag feel, reduced jitter, visible-frame clamping). Bubble size is set via HUD presets (Small/Medium/Large), and the panel-level square shadow is disabled in favor of circular content shadow styling.
 
 The **CountdownOverlayWindow** is borderless, click-through, and shown on each connected display while `RecordingEngine.state` is `.countdown`.
