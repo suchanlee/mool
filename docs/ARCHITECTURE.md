@@ -105,7 +105,7 @@ User clicks menu bar status item
       ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
       │               Popover show/close drives quick preview lifecycle:
       │               open => prepareQuickRecorderContext() + show CameraBubbleWindow
-      │               interaction => bubble move/resize does not dismiss popover
+      │               interaction => outside-click monitor keeps bubble interactions active
       │               close => teardownQuickRecorderContext() + hide quick preview bubble
       └─ Right click → context menu
                  │

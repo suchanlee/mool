@@ -12,6 +12,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private var stateObserverTimer: Timer?
     private var quickPreviewTask: Task<Void, Never>?
     private var lastHandledCompletedRecordingURL: URL?
+    private var localPopoverClickMonitor: Any?
+    private var globalPopoverClickMonitor: Any?
+    private var localPopoverKeyMonitor: Any?
 
     private unowned let recordingEngine: RecordingEngine
     private unowned let windowCoordinator: WindowCoordinator
@@ -209,6 +212,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        stopPopoverDismissMonitors()
         quickPreviewTask?.cancel()
         quickPreviewTask = nil
         recordingEngine.teardownQuickRecorderContext()
@@ -216,6 +220,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     func popoverDidShow(_ notification: Notification) {
+        startPopoverDismissMonitors()
         quickPreviewTask?.cancel()
         quickPreviewTask = Task { [weak self] in
             guard let self else { return }
@@ -250,6 +255,84 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         alert.informativeText = error.localizedDescription
         alert.alertStyle = .warning
         alert.runModal()
+    }
+
+    // MARK: - Popover Dismissal Monitoring
+
+    private func startPopoverDismissMonitors() {
+        stopPopoverDismissMonitors()
+
+        localPopoverClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self else { return event }
+            handlePopoverInteraction(event)
+            return event
+        }
+
+        globalPopoverClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            Task { @MainActor in
+                self?.handlePopoverInteraction(event)
+            }
+        }
+
+        localPopoverKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            guard quickRecorderPopover.isShown else { return event }
+            // Esc key
+            if event.keyCode == 53 {
+                closeQuickRecorderPopover()
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func stopPopoverDismissMonitors() {
+        if let monitor = localPopoverClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            localPopoverClickMonitor = nil
+        }
+        if let monitor = globalPopoverClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalPopoverClickMonitor = nil
+        }
+        if let monitor = localPopoverKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            localPopoverKeyMonitor = nil
+        }
+    }
+
+    private func handlePopoverInteraction(_ event: NSEvent) {
+        guard quickRecorderPopover.isShown else { return }
+        guard let point = eventScreenPoint(event) else { return }
+        if shouldKeepPopoverOpen(for: point) {
+            return
+        }
+        closeQuickRecorderPopover()
+    }
+
+    private func shouldKeepPopoverOpen(for point: NSPoint) -> Bool {
+        isPointInPopover(point) ||
+            isPointInStatusItemButton(point) ||
+            windowCoordinator.isPointInVisibleCameraBubble(point)
+    }
+
+    private func isPointInPopover(_ point: NSPoint) -> Bool {
+        guard let window = quickRecorderPopover.contentViewController?.view.window else { return false }
+        return window.frame.contains(point)
+    }
+
+    private func isPointInStatusItemButton(_ point: NSPoint) -> Bool {
+        guard let button = statusItem?.button, let buttonWindow = button.window else { return false }
+        let buttonRectInWindow = button.convert(button.bounds, to: nil)
+        let buttonRectOnScreen = buttonWindow.convertToScreen(buttonRectInWindow)
+        return buttonRectOnScreen.contains(point)
+    }
+
+    private func eventScreenPoint(_ event: NSEvent) -> NSPoint? {
+        if let window = event.window {
+            return window.convertPoint(toScreen: event.locationInWindow)
+        }
+        return event.locationInWindow
     }
 }
 

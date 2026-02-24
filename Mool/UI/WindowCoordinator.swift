@@ -114,6 +114,11 @@ final class WindowCoordinator {
         }
     }
 
+    func isPointInVisibleCameraBubble(_ screenPoint: NSPoint) -> Bool {
+        guard let bubble = cameraBubbleWindow, bubble.isVisible else { return false }
+        return bubble.frame.contains(screenPoint)
+    }
+
     func toggleSpeakerNotes() {
         guard let notes = speakerNotesWindow else { return }
         if notes.isVisible {

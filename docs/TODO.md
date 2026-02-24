@@ -101,6 +101,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Fix cropped display recordings by aligning writer output dimensions with screen stream dimensions
 - [x] Restore camera bubble drag + resize behavior in both quick preview and recording sessions
 - [x] Keep quick recorder popover open while moving/resizing camera bubble
+- [x] Close quick recorder popover on true outside click while preserving status-item/popover/bubble interactions
 - [x] Composite camera feed as circular bubble in recorded output (instead of rectangular PiP)
 - [x] Auto-open Library after a recording finishes successfully
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
