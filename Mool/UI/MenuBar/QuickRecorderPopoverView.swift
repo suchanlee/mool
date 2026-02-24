@@ -20,7 +20,6 @@ struct QuickRecorderPopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            header
             sourceRow
             cameraRow
             microphoneRow
@@ -32,18 +31,6 @@ struct QuickRecorderPopoverView: View {
         .task {
             captureTab = engine.settings.selectedWindowID == nil ? .display : .window
             refreshInputDevices()
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 9, height: 9)
-            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 9, height: 9)
-            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 9, height: 9)
-            Spacer()
-            Text("Mool")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.primary)
         }
     }
 
