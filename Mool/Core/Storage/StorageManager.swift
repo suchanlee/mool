@@ -33,25 +33,28 @@ final class StorageManager {
     var totalSize: Int64 = 0
     var storagePath: URL
 
-    enum TrimError: LocalizedError {
+    enum EditError: LocalizedError {
         case exporterUnavailable
         case unsupportedFileType
         case invalidRange
+        case invalidPlaybackRate
         case exportFailed(String)
         case missingOutputURL
 
         var errorDescription: String? {
             switch self {
             case .exporterUnavailable:
-                "Unable to create a trim export session."
+                "Unable to create an export session."
             case .unsupportedFileType:
-                "This recording format is not supported for trimming."
+                "This recording format is not supported for editing."
             case .invalidRange:
-                "The selected trim range is invalid."
+                "The selected edit range is invalid."
+            case .invalidPlaybackRate:
+                "Playback speed must be greater than zero."
             case let .exportFailed(message):
-                "Trim failed: \(message)"
+                "Edit failed: \(message)"
             case .missingOutputURL:
-                "Trim failed because the output file could not be created."
+                "Edit failed because the output file could not be created."
             }
         }
     }
@@ -138,22 +141,79 @@ final class StorageManager {
         NSPasteboard.general.setString(recording.url.path, forType: .string)
     }
 
-    func trim(_ recording: SavedRecording, from start: TimeInterval, to end: TimeInterval) async throws -> SavedRecording {
+    func createEditedVersion(
+        _ recording: SavedRecording,
+        from start: TimeInterval,
+        to end: TimeInterval,
+        playbackRate: Double
+    ) async throws -> SavedRecording {
+        guard playbackRate > 0 else {
+            throw EditError.invalidPlaybackRate
+        }
+
         let asset = AVURLAsset(url: recording.url)
         let durationTime = try await asset.load(.duration)
         let totalDuration = max(durationTime.seconds, 0)
         let clampedStart = max(0, min(start, totalDuration))
         let clampedEnd = max(0, min(end, totalDuration))
+        let selectedDurationSeconds = clampedEnd - clampedStart
 
-        guard clampedEnd - clampedStart >= 0.1 else {
-            throw TrimError.invalidRange
+        guard selectedDurationSeconds >= 0.1 else {
+            throw EditError.invalidRange
         }
 
-        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else {
-            throw TrimError.exporterUnavailable
+        let sourceRange = CMTimeRange(
+            start: CMTime(seconds: clampedStart, preferredTimescale: 600),
+            end: CMTime(seconds: clampedEnd, preferredTimescale: 600)
+        )
+
+        let composition = AVMutableComposition()
+
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        if let sourceVideoTrack = videoTracks.first,
+           let composedVideoTrack = composition.addMutableTrack(
+               withMediaType: .video,
+               preferredTrackID: kCMPersistentTrackID_Invalid
+           )
+        {
+            try composedVideoTrack.insertTimeRange(sourceRange, of: sourceVideoTrack, at: .zero)
+            composedVideoTrack.preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
         }
 
-        let outputURL = uniqueTrimmedURL(for: recording)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        for sourceAudioTrack in audioTracks {
+            if let composedAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) {
+                try composedAudioTrack.insertTimeRange(sourceRange, of: sourceAudioTrack, at: .zero)
+            }
+        }
+
+        let insertedRange = CMTimeRange(start: .zero, duration: sourceRange.duration)
+        if abs(playbackRate - 1.0) > .ulpOfOne {
+            let scaledDuration = CMTime(
+                seconds: selectedDurationSeconds / playbackRate,
+                preferredTimescale: 600
+            )
+
+            for track in composition.tracks {
+                track.scaleTimeRange(insertedRange, toDuration: scaledDuration)
+            }
+        }
+
+        guard composition.duration.seconds > 0 else {
+            throw EditError.invalidRange
+        }
+
+        guard let exporter = AVAssetExportSession(
+            asset: composition,
+            presetName: AVAssetExportPresetHighestQuality
+        ) else {
+            throw EditError.exporterUnavailable
+        }
+
+        let outputURL = uniqueEditedURL(for: recording, playbackRate: playbackRate)
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
         }
@@ -164,21 +224,21 @@ final class StorageManager {
         } else if let firstType = exporter.supportedFileTypes.first {
             exporter.outputFileType = firstType
         } else {
-            throw TrimError.unsupportedFileType
+            throw EditError.unsupportedFileType
         }
         exporter.shouldOptimizeForNetworkUse = false
-        exporter.timeRange = CMTimeRange(
-            start: CMTime(seconds: clampedStart, preferredTimescale: 600),
-            end: CMTime(seconds: clampedEnd, preferredTimescale: 600)
-        )
 
         try await export(exporter: exporter)
         await refresh()
 
         guard let refreshed = recordings.first(where: { $0.url == outputURL }) else {
-            throw TrimError.missingOutputURL
+            throw EditError.missingOutputURL
         }
         return refreshed
+    }
+
+    func trim(_ recording: SavedRecording, from start: TimeInterval, to end: TimeInterval) async throws -> SavedRecording {
+        try await createEditedVersion(recording, from: start, to: end, playbackRate: 1.0)
     }
 
     // MARK: - URL Generation
@@ -205,10 +265,12 @@ final class StorageManager {
         }
     }
 
-    private func uniqueTrimmedURL(for recording: SavedRecording) -> URL {
+    private func uniqueEditedURL(for recording: SavedRecording, playbackRate: Double) -> URL {
         let parent = recording.url.deletingLastPathComponent()
         let ext = recording.url.pathExtension
-        let base = recording.url.deletingPathExtension().lastPathComponent + "_trimmed"
+        let sourceBase = recording.url.deletingPathExtension().lastPathComponent
+        let speedTag = playbackRate == 1.0 ? "trimmed" : "edited_\(speedLabel(for: playbackRate))"
+        let base = "\(sourceBase)_\(speedTag)"
         var attempt = 0
 
         while true {
@@ -230,7 +292,7 @@ final class StorageManager {
                     continuation.resume()
                 case .failed:
                     continuation.resume(
-                        throwing: TrimError.exportFailed(
+                        throwing: EditError.exportFailed(
                             sessionBox.session.error?.localizedDescription ?? "Unknown error."
                         )
                     )
@@ -238,13 +300,18 @@ final class StorageManager {
                     continuation.resume(throwing: CancellationError())
                 default:
                     continuation.resume(
-                        throwing: TrimError.exportFailed(
+                        throwing: EditError.exportFailed(
                             "Export finished in unexpected state: \(sessionBox.session.status.rawValue)"
                         )
                     )
                 }
             }
         }
+    }
+
+    private func speedLabel(for playbackRate: Double) -> String {
+        let formatted = playbackRate.formatted(.number.precision(.fractionLength(0 ... 2)))
+        return formatted.replacingOccurrences(of: ".", with: "_") + "x"
     }
 }
 

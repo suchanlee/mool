@@ -84,7 +84,7 @@ Mool/
 │   │   ├── SpeakerNotesWindow.swift    Floating notes NSPanel
 │   │   └── CountdownOverlayWindow.swift Full-screen countdown splash
 │   ├── Library/
-│   │   └── LibraryView.swift       Browse + play local recordings, show duration, trim clips, adjust playback speed
+│   │   └── LibraryView.swift       Browse/play recordings with unified Edit mode (timeline trim + playback speed) and edited export
 │   ├── Settings/
 │   │   └── SettingsView.swift      Prefs: recording, storage, app info
 │   └── Onboarding/
@@ -209,13 +209,13 @@ File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
 - Enumeration of saved recordings (sorted by date)
 - Duration metadata extraction for list rows
 - Delete, rename, reveal-in-Finder
-- Trim export using start/end ranges via `AVAssetExportSession`
+- Edited export (trim + playback-speed retime) via `AVMutableComposition` + `AVAssetExportSession`
 - Total disk usage computation
 
 Library playback behavior:
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
-- Trim action opens a range editor (start/end sliders) and saves a new `_trimmed` recording in the same directory.
-- Playback speed can be switched in-viewer (0.5x, 1x, 1.25x, 1.5x, 2x) and applies immediately while playing.
+- Edit mode overlays a timeline strip with thumbnail rail and draggable in/out handles.
+- Save in Edit mode writes a new edited recording (trimmed and speed-adjusted), preserving the original file.
 
 ---
 

@@ -1,3 +1,5 @@
+import AppKit
+import AVFoundation
 import AVKit
 import SwiftUI
 
@@ -5,20 +7,15 @@ import SwiftUI
 
 struct LibraryView: View {
     @Environment(StorageManager.self) var storageManager
-    @Environment(RecordingEngine.self) var engine
 
     @State private var selectedRecording: SavedRecording?
     @State private var showingDeleteConfirm = false
     @State private var renamingRecording: SavedRecording?
-    @State private var trimmingRecording: SavedRecording?
     @State private var player: AVPlayer?
-    @State private var playbackRate: Double = 1.0
-
-    private let playbackRateOptions: [Double] = [0.5, 1.0, 1.25, 1.5, 2.0]
+    @State private var isEditing = false
 
     var body: some View {
         NavigationSplitView {
-            // Sidebar: recording list
             recordingList
                 .navigationTitle("Library")
                 .toolbar {
@@ -29,12 +26,26 @@ struct LibraryView: View {
                     }
                 }
         } detail: {
-            // Detail: video player
             if let recording = selectedRecording {
-                VideoDetailView(recording: recording, player: $player, playbackRate: $playbackRate)
-                    .toolbar {
-                        recordingToolbar(recording)
+                VideoDetailView(
+                    recording: recording,
+                    player: $player,
+                    isEditing: $isEditing,
+                    onSaveEditedVersion: { start, end, playbackRate in
+                        let edited = try await storageManager.createEditedVersion(
+                            recording,
+                            from: start,
+                            to: end,
+                            playbackRate: playbackRate
+                        )
+                        await MainActor.run {
+                            selectedRecording = edited
+                        }
                     }
+                )
+                .toolbar {
+                    recordingToolbar(recording)
+                }
             } else {
                 ContentUnavailableView(
                     "No Recording Selected",
@@ -44,13 +55,11 @@ struct LibraryView: View {
             }
         }
         .task { await storageManager.refresh() }
+        .onChange(of: selectedRecording?.id) { _, _ in
+            isEditing = false
+        }
         .sheet(item: $renamingRecording) { recording in
             RenameSheet(recording: recording, storageManager: storageManager)
-        }
-        .sheet(item: $trimmingRecording) { recording in
-            TrimRecordingSheet(recording: recording, storageManager: storageManager) { trimmedRecording in
-                selectedRecording = trimmedRecording
-            }
         }
     }
 
@@ -77,15 +86,10 @@ struct LibraryView: View {
     @ToolbarContentBuilder
     private func recordingToolbar(_ recording: SavedRecording) -> some ToolbarContent {
         ToolbarItemGroup {
-            Menu {
-                Picker("Playback Speed", selection: $playbackRate) {
-                    ForEach(playbackRateOptions, id: \.self) { rate in
-                        Text(Self.speedLabel(rate)).tag(rate)
-                    }
-                }
-            } label: {
-                Label(Self.speedLabel(playbackRate), systemImage: "speedometer")
+            Button(isEditing ? "Exit Edit" : "Edit") {
+                isEditing.toggle()
             }
+            .disabled((recording.duration ?? 0) < 0.1)
 
             Button("Rename") {
                 renamingRecording = recording
@@ -95,9 +99,6 @@ struct LibraryView: View {
             }
             Button("Copy Path") {
                 storageManager.copyPath(recording)
-            }
-            Button("Trim") {
-                trimmingRecording = recording
             }
             Button(role: .destructive) {
                 showingDeleteConfirm = true
@@ -116,13 +117,6 @@ struct LibraryView: View {
                 Text("This moves the file to the Trash.")
             }
         }
-    }
-
-    private static func speedLabel(_ rate: Double) -> String {
-        if rate.rounded() == rate {
-            return "\(Int(rate))x"
-        }
-        return "\(rate.formatted(.number.precision(.fractionLength(0 ... 2))))x"
     }
 }
 
@@ -164,20 +158,149 @@ struct RecordingRow: View {
 struct VideoDetailView: View {
     let recording: SavedRecording
     @Binding var player: AVPlayer?
-    @Binding var playbackRate: Double
+    @Binding var isEditing: Bool
+    let onSaveEditedVersion: (_ start: TimeInterval, _ end: TimeInterval, _ playbackRate: Double) async throws -> Void
+
+    @State private var editStart: Double = 0
+    @State private var editEnd: Double = 0
+    @State private var editPlaybackRate: Double = 1.0
+    @State private var thumbnails: [NSImage] = []
+    @State private var isSavingEdit = false
+    @State private var editErrorMessage: String?
+
+    private let minimumTrimSpan: Double = 0.1
+    private let playbackRateOptions: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+
+    private var totalDuration: Double {
+        let recordedDuration = recording.duration ?? 0
+        let playerDuration = player?.currentItem?.duration.seconds ?? 0
+        let resolved = recordedDuration > 0 ? recordedDuration : playerDuration
+        return max(resolved, 0)
+    }
+
+    private var isPlaying: Bool {
+        player?.timeControlStatus == .playing
+    }
 
     var body: some View {
-        VideoPlayer(player: player)
-            .task(id: recording.url) {
-                loadRecording(recording.url)
+        ZStack(alignment: .bottom) {
+            VideoPlayer(player: player)
+
+            if isEditing {
+                editOverlay
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .onChange(of: playbackRate) { _, _ in
-                applyPlaybackRateIfPlaying()
+        }
+        .animation(.easeInOut(duration: 0.2), value: isEditing)
+        .task(id: recording.url) {
+            loadRecording(recording.url)
+            resetEditorState()
+            await generateThumbnailsIfNeeded(force: true)
+        }
+        .onChange(of: isEditing) { _, editing in
+            if editing {
+                beginEditing()
+            } else {
+                endEditing()
             }
-            .onDisappear {
-                player?.pause()
-                player = nil
+        }
+        .onChange(of: editStart) { _, _ in
+            guard isEditing else { return }
+            synchronizeEditedRange()
+        }
+        .onChange(of: editEnd) { _, _ in
+            guard isEditing else { return }
+            synchronizeEditedRange()
+        }
+        .onChange(of: editPlaybackRate) { _, _ in
+            guard isEditing else { return }
+            applyPlaybackRateIfPlaying()
+        }
+        .onDisappear {
+            cleanupPlayerState()
+        }
+    }
+
+    private var editOverlay: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
+                Button {
+                    togglePlayPauseInEditor()
+                } label: {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .background(Color.white.opacity(0.12), in: Circle())
+
+                TrimTimelineStrip(
+                    thumbnails: thumbnails,
+                    duration: max(totalDuration, minimumTrimSpan),
+                    startTime: $editStart,
+                    endTime: $editEnd,
+                    minimumSpan: minimumTrimSpan
+                )
+                .frame(height: 66)
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    Menu {
+                        Picker("Speed", selection: $editPlaybackRate) {
+                            ForEach(playbackRateOptions, id: \.self) { rate in
+                                Text(Self.speedLabel(rate)).tag(rate)
+                            }
+                        }
+                    } label: {
+                        Label(Self.speedLabel(editPlaybackRate), systemImage: "speedometer")
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: 100)
+                    }
+                    .menuStyle(.button)
+
+                    Button {
+                        saveEditedVersion()
+                    } label: {
+                        Text(isSavingEdit ? "Saving..." : "Save")
+                            .frame(width: 100)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSavingEdit || !canSaveEdit)
+
+                    Button("Cancel") {
+                        isEditing = false
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isSavingEdit)
+                    .frame(width: 100)
+                }
             }
+
+            HStack {
+                Text("Start: \(Self.formatTime(editStart))")
+                Text("End: \(Self.formatTime(editEnd))")
+                Text("Length: \(Self.formatTime(max(editEnd - editStart, 0)))")
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+
+            if let editErrorMessage {
+                Text(editErrorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
+        )
+    }
+
+    private var canSaveEdit: Bool {
+        totalDuration >= minimumTrimSpan && (editEnd - editStart) >= minimumTrimSpan
     }
 
     @MainActor
@@ -187,165 +310,141 @@ struct VideoDetailView: View {
         } else {
             player?.replaceCurrentItem(with: AVPlayerItem(url: url))
         }
+
         player?.seek(to: .zero)
-        player?.playImmediately(atRate: Float(playbackRate))
+        player?.play()
+    }
+
+    @MainActor
+    private func beginEditing() {
+        guard totalDuration >= minimumTrimSpan else {
+            isEditing = false
+            return
+        }
+
+        resetEditorState()
+        synchronizeEditedRange()
+        player?.pause()
+
+        Task {
+            await generateThumbnailsIfNeeded(force: thumbnails.isEmpty)
+        }
+    }
+
+    @MainActor
+    private func endEditing() {
+        player?.currentItem?.forwardPlaybackEndTime = .invalid
+        editErrorMessage = nil
+    }
+
+    @MainActor
+    private func resetEditorState() {
+        let duration = totalDuration
+        editStart = 0
+        editEnd = duration
+        editPlaybackRate = 1.0
+        editErrorMessage = nil
+        isSavingEdit = false
+    }
+
+    @MainActor
+    private func synchronizeEditedRange() {
+        let duration = totalDuration
+        guard duration >= minimumTrimSpan else { return }
+
+        editStart = clamp(editStart, min: 0, max: max(duration - minimumTrimSpan, 0))
+        editEnd = clamp(editEnd, min: editStart + minimumTrimSpan, max: duration)
+
+        guard let player else { return }
+
+        player.currentItem?.forwardPlaybackEndTime = CMTime(seconds: editEnd, preferredTimescale: 600)
+
+        let current = player.currentTime().seconds
+        if current < editStart || current > editEnd {
+            player.seek(to: CMTime(seconds: editStart, preferredTimescale: 600))
+        }
+    }
+
+    @MainActor
+    private func togglePlayPauseInEditor() {
+        guard let player else { return }
+
+        if player.timeControlStatus == .playing {
+            player.pause()
+            return
+        }
+
+        let current = player.currentTime().seconds
+        if current < editStart || current >= editEnd {
+            player.seek(to: CMTime(seconds: editStart, preferredTimescale: 600))
+        }
+
+        player.playImmediately(atRate: Float(editPlaybackRate))
     }
 
     @MainActor
     private func applyPlaybackRateIfPlaying() {
         guard let player, player.timeControlStatus == .playing else { return }
-        player.playImmediately(atRate: Float(playbackRate))
-    }
-}
-
-// MARK: - Trim Sheet
-
-struct TrimRecordingSheet: View {
-    let recording: SavedRecording
-    let storageManager: StorageManager
-    let onTrimmed: (SavedRecording) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var trimStart: Double
-    @State private var trimEnd: Double
-    @State private var isSaving = false
-    @State private var errorMessage: String?
-
-    private let minimumTrimSpan: Double = 0.1
-
-    init(
-        recording: SavedRecording,
-        storageManager: StorageManager,
-        onTrimmed: @escaping (SavedRecording) -> Void
-    ) {
-        self.recording = recording
-        self.storageManager = storageManager
-        self.onTrimmed = onTrimmed
-
-        let duration = max(recording.duration ?? 0, 0)
-        _trimStart = State(initialValue: 0)
-        _trimEnd = State(initialValue: duration)
+        player.playImmediately(atRate: Float(editPlaybackRate))
     }
 
-    private var totalDuration: Double {
-        max(recording.duration ?? 0, 0)
-    }
-
-    private var selectedDuration: Double {
-        max(trimEnd - trimStart, 0)
-    }
-
-    private var canEditTrimRange: Bool {
-        totalDuration >= minimumTrimSpan
-    }
-
-    private var sliderStep: Double {
-        max(0.01, min(0.1, totalDuration / 200))
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Trim Recording")
-                .font(.headline)
-
-            Text(recording.title)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            if canEditTrimRange {
-                VStack(alignment: .leading, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Start")
-                            Spacer()
-                            Text(Self.formatTime(trimStart))
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(
-                            value: $trimStart,
-                            in: 0 ... trimEnd,
-                            step: sliderStep
-                        )
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("End")
-                            Spacer()
-                            Text(Self.formatTime(trimEnd))
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(
-                            value: $trimEnd,
-                            in: trimStart ... totalDuration,
-                            step: sliderStep
-                        )
-                    }
-
-                    HStack {
-                        Text("Selected")
-                        Spacer()
-                        Text(Self.formatTime(selectedDuration))
-                            .monospacedDigit()
-                            .fontWeight(.medium)
-                    }
-                    .font(.subheadline)
-                }
-            } else if totalDuration > 0 {
-                Text("Recording is too short to trim.")
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Unable to load duration for this recording.")
-                    .foregroundStyle(.secondary)
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-            }
-
-            HStack {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .disabled(isSaving)
-
-                Spacer()
-
-                Button("Save Trim") {
-                    saveTrim()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isSaving || !canEditTrimRange || selectedDuration < minimumTrimSpan)
-            }
-        }
-        .padding(20)
-        .frame(minWidth: 430)
-    }
-
-    private func saveTrim() {
-        isSaving = true
-        errorMessage = nil
+    private func saveEditedVersion() {
+        isSavingEdit = true
+        editErrorMessage = nil
 
         Task {
             do {
-                let trimmed = try await storageManager.trim(recording, from: trimStart, to: trimEnd)
+                try await onSaveEditedVersion(editStart, editEnd, editPlaybackRate)
                 await MainActor.run {
-                    isSaving = false
-                    onTrimmed(trimmed)
-                    dismiss()
+                    isSavingEdit = false
+                    isEditing = false
                 }
             } catch {
                 await MainActor.run {
-                    isSaving = false
-                    errorMessage = error.localizedDescription
+                    isSavingEdit = false
+                    editErrorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    private func generateThumbnailsIfNeeded(force: Bool) async {
+        guard force || thumbnails.isEmpty else { return }
+        let url = recording.url
+        let duration = max(totalDuration, minimumTrimSpan)
+        let images = await Self.generateThumbnails(for: url, duration: duration, count: 14)
+        await MainActor.run {
+            thumbnails = images
+        }
+    }
+
+    private func cleanupPlayerState() {
+        player?.pause()
+        player = nil
+    }
+
+    private static func generateThumbnails(for url: URL, duration: TimeInterval, count: Int) async -> [NSImage] {
+        await Task.detached(priority: .userInitiated) {
+            let asset = AVURLAsset(url: url)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 220, height: 124)
+
+            var images: [NSImage] = []
+            let frameCount = max(count, 1)
+
+            for index in 0 ..< frameCount {
+                let progress = frameCount == 1 ? 0.0 : Double(index) / Double(frameCount - 1)
+                let second = max(0, duration * progress)
+                let time = CMTime(seconds: second, preferredTimescale: 600)
+
+                if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
+                    images.append(NSImage(cgImage: cgImage, size: .zero))
+                }
+            }
+
+            return images
+        }.value
     }
 
     private static func formatTime(_ seconds: TimeInterval) -> String {
@@ -353,6 +452,135 @@ struct TrimRecordingSheet: View {
         let m = total / 60
         let s = total % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    private static func speedLabel(_ rate: Double) -> String {
+        if rate.rounded() == rate {
+            return "\(Int(rate))x"
+        }
+        return "\(rate.formatted(.number.precision(.fractionLength(0 ... 2))))x"
+    }
+
+    private func clamp(_ value: Double, min: Double, max: Double) -> Double {
+        Swift.min(Swift.max(value, min), max)
+    }
+}
+
+// MARK: - Trim Timeline Strip
+
+struct TrimTimelineStrip: View {
+    let thumbnails: [NSImage]
+    let duration: Double
+    @Binding var startTime: Double
+    @Binding var endTime: Double
+    let minimumSpan: Double
+
+    private let handleWidth: CGFloat = 18
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
+            let height = max(proxy.size.height, 1)
+            let startX = CGFloat(startProgress) * width
+            let endX = CGFloat(endProgress) * width
+
+            ZStack(alignment: .leading) {
+                thumbnailTrack(width: width, height: height)
+
+                Color.black.opacity(0.45)
+                    .frame(width: max(startX, 0), height: height)
+
+                Color.black.opacity(0.45)
+                    .frame(width: max(width - endX, 0), height: height)
+                    .offset(x: endX)
+
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.yellow, lineWidth: 3)
+                    .frame(width: max(endX - startX, 18), height: max(height - 2, 1))
+                    .offset(x: startX)
+
+                Capsule(style: .continuous)
+                    .fill(Color.yellow)
+                    .frame(width: 4, height: max(height - 10, 1))
+                    .offset(x: startX - 2, y: 5)
+
+                Capsule(style: .continuous)
+                    .fill(Color.yellow)
+                    .frame(width: 4, height: max(height - 10, 1))
+                    .offset(x: endX - 2, y: 5)
+
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: handleWidth, height: height)
+                    .offset(x: startX - handleWidth / 2)
+                    .contentShape(Rectangle())
+                    .gesture(startHandleDrag(width: width))
+
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: handleWidth, height: height)
+                    .offset(x: endX - handleWidth / 2)
+                    .contentShape(Rectangle())
+                    .gesture(endHandleDrag(width: width))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+
+    private var startProgress: Double {
+        clamp(startTime / max(duration, minimumSpan), min: 0, max: 1)
+    }
+
+    private var endProgress: Double {
+        clamp(endTime / max(duration, minimumSpan), min: 0, max: 1)
+    }
+
+    @ViewBuilder
+    private func thumbnailTrack(width: CGFloat, height: CGFloat) -> some View {
+        let visibleCount = max(thumbnails.count, 12)
+        let spacing: CGFloat = 1
+        let totalSpacing = spacing * CGFloat(max(visibleCount - 1, 0))
+        let itemWidth = max((width - totalSpacing) / CGFloat(visibleCount), 1)
+
+        HStack(spacing: spacing) {
+            ForEach(0 ..< visibleCount, id: \.self) { index in
+                Group {
+                    if index < thumbnails.count {
+                        Image(nsImage: thumbnails[index])
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                }
+                .frame(width: itemWidth, height: height)
+                .clipped()
+            }
+        }
+    }
+
+    private func startHandleDrag(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let proposed = clamp(Double(value.location.x / width) * duration, min: 0, max: endTime - minimumSpan)
+                startTime = proposed
+            }
+    }
+
+    private func endHandleDrag(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let proposed = clamp(Double(value.location.x / width) * duration, min: startTime + minimumSpan, max: duration)
+                endTime = proposed
+            }
+    }
+
+    private func clamp(_ value: Double, min: Double, max: Double) -> Double {
+        Swift.min(Swift.max(value, min), max)
     }
 }
 

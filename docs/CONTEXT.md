@@ -82,7 +82,7 @@ mool/
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
         ├── Library/
-        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with selection-driven item replacement; duration metadata; playback speed; delete/rename/reveal/trim
+        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with Edit mode (timeline trim + playback speed) and edited-export save flow
         ├── Settings/
         │   └── SettingsView.swift      TabView: Recording, Storage, About
         └── Onboarding/
@@ -268,7 +268,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 - Menu bar quick recorder popover (left-click) with display/window, camera preview/device, microphone device, system audio controls
 - Quick recorder camera menu includes a live "Flip Camera" toggle (mirrors preview and camera-only captured feed)
 - Right-click context menu preserved for library/settings/quit actions
-- Library view (AVPlayer preview, duration metadata, playback speed controls, trim export, delete, rename, reveal in Finder)
+- Library view (AVPlayer preview, duration metadata, unified Edit mode with timeline strip/handles, trim + speed edited export, delete/rename/reveal actions)
 - Settings (Recording, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording
