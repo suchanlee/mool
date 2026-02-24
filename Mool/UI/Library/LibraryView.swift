@@ -560,10 +560,10 @@ struct TrimTimelineStrip: View {
     let minimumSpan: Double
     let playheadTime: Double?
 
-    private let handleVisualWidth: CGFloat = 16
-    private let handleHitThreshold: CGFloat = 26
+    private let handleVisualWidth: CGFloat = 18
+    private let handleHitAreaWidth: CGFloat = 40
     private let trackCornerRadius: CGFloat = 10
-    private let horizontalPadding: CGFloat = 12
+    private let horizontalPadding: CGFloat = 20
 
     var body: some View {
         GeometryReader { proxy in
@@ -591,14 +591,14 @@ struct TrimTimelineStrip: View {
 
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(Color.yellow, lineWidth: 3)
-                        .frame(width: max(endX - startX, 18), height: max(height - 2, 1))
+                        .frame(width: max(endX - startX, handleVisualWidth), height: height)
                         .offset(x: startX - trackMinX)
 
                     if playheadTime != nil {
                         Capsule(style: .continuous)
                             .fill(.white.opacity(0.92))
-                            .frame(width: 2, height: height + 6)
-                            .offset(x: (playheadX(trackMinX: trackMinX, trackWidth: trackWidth, height: height) - trackMinX) - 1, y: -3)
+                            .frame(width: 2, height: height + 4)
+                            .offset(x: (playheadX(trackMinX: trackMinX, trackWidth: trackWidth, height: height) - trackMinX) - 1, y: -2)
                             .shadow(color: .black.opacity(0.3), radius: 1)
                     }
                 }
@@ -606,28 +606,13 @@ struct TrimTimelineStrip: View {
                 .offset(x: trackMinX)
                 .zIndex(0)
 
-                handleView(height: height)
-                    .offset(x: startX - handleVisualWidth / 2, y: 4)
-                    .zIndex(2)
-
-                handleView(height: height)
-                    .offset(x: endX - handleVisualWidth / 2, y: 4)
-                    .zIndex(2)
-
-                // Dedicated handle hit-zones make start/end dragging reliable.
-                Rectangle()
-                    .fill(.clear)
-                    .frame(width: handleHitThreshold * 2, height: height + 12)
-                    .offset(x: startX - handleHitThreshold, y: -2)
-                    .contentShape(Rectangle())
+                handleHitArea(height: height)
+                    .offset(x: startX - handleHitAreaWidth / 2)
                     .zIndex(3)
                     .highPriorityGesture(startHandleDrag(trackMinX: trackMinX, trackWidth: trackWidth))
 
-                Rectangle()
-                    .fill(.clear)
-                    .frame(width: handleHitThreshold * 2, height: height + 12)
-                    .offset(x: endX - handleHitThreshold, y: -2)
-                    .contentShape(Rectangle())
+                handleHitArea(height: height)
+                    .offset(x: endX - handleHitAreaWidth / 2)
                     .zIndex(3)
                     .highPriorityGesture(endHandleDrag(trackMinX: trackMinX, trackWidth: trackWidth))
             }
@@ -672,10 +657,19 @@ struct TrimTimelineStrip: View {
         }
     }
 
+    private func handleHitArea(height: CGFloat) -> some View {
+        ZStack {
+            Color.clear
+            handleView(height: height)
+        }
+        .frame(width: handleHitAreaWidth, height: height)
+        .contentShape(Rectangle())
+    }
+
     private func handleView(height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 5, style: .continuous)
             .fill(Color.yellow)
-            .frame(width: handleVisualWidth, height: max(height - 8, 24))
+            .frame(width: handleVisualWidth, height: max(height + 2, 24))
             .overlay {
                 VStack(spacing: 3) {
                     Capsule(style: .continuous)
