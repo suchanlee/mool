@@ -127,6 +127,8 @@ AppDelegate
 1. User clicks the menu bar item (or presses ⌘⇧R).
 2. Entry paths:
    - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
+     - While the popover is open, `MenuBarController` prepares quick-recorder context and shows `CameraBubbleWindow` as the preview surface.
+     - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
    - Keyboard shortcut: `WindowCoordinator.showSourcePicker()` opens full source picker.
 3. User starts recording from quick recorder or source picker.

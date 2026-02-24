@@ -10,6 +10,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private var statusBarMenu: NSMenu?
     private let quickRecorderPopover = NSPopover()
     private var stateObserverTimer: Timer?
+    private var quickPreviewTask: Task<Void, Never>?
 
     private unowned let recordingEngine: RecordingEngine
     private unowned let windowCoordinator: WindowCoordinator
@@ -190,7 +191,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         let view = QuickRecorderPopoverView(
             onStartRecording: { [weak self] in self?.startRecording() },
             onOpenLibrary: { [weak self] in self?.openLibrary() },
-            onOpenSettings: { [weak self] in self?.openSettings() }
+            onOpenSettings: { [weak self] in self?.openSettings() },
+            onCameraVisibilityChanged: { [weak self] in self?.windowCoordinator.refreshQuickPreviewBubble() }
         )
         .environment(recordingEngine)
 
@@ -204,7 +206,20 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        quickPreviewTask?.cancel()
+        quickPreviewTask = nil
         recordingEngine.teardownQuickRecorderContext()
+        windowCoordinator.hideQuickPreviewBubble()
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        quickPreviewTask?.cancel()
+        quickPreviewTask = Task { [weak self] in
+            guard let self else { return }
+            await recordingEngine.prepareQuickRecorderContext()
+            guard !Task.isCancelled, quickRecorderPopover.isShown else { return }
+            windowCoordinator.showQuickPreviewBubble()
+        }
     }
 
     private func showPendingRuntimeErrorIfNeeded() {

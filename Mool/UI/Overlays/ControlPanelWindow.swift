@@ -6,8 +6,11 @@ import SwiftUI
 /// A floating, non-activating panel that hosts the recording HUD.
 /// Stays on top of all other windows without stealing keyboard focus.
 final class ControlPanelWindow: NSPanel {
-
-    init(recordingEngine: RecordingEngine, annotationManager: AnnotationManager) {
+    init(
+        recordingEngine: RecordingEngine,
+        annotationManager: AnnotationManager,
+        onStopRequested: @escaping () -> Void
+    ) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 68),
             styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
@@ -28,8 +31,11 @@ final class ControlPanelWindow: NSPanel {
         isReleasedWhenClosed = false
 
         // Content
-        let view = ControlPanelView(annotationManager: annotationManager)
-            .environment(recordingEngine)
+        let view = ControlPanelView(
+            annotationManager: annotationManager,
+            onStopRequested: onStopRequested
+        )
+        .environment(recordingEngine)
         contentView = NSHostingView(rootView: view)
 
         // Position: bottom-center of main screen

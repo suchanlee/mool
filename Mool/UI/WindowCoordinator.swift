@@ -18,6 +18,8 @@ final class WindowCoordinator {
     private var countdownOverlayWindows: [CountdownOverlayWindow] = []
     private var sourcePickerController: SourcePickerController?
     private var stateObserverTimer: Timer?
+    private var lastObservedState: RecordingState = .idle
+    private var showsQuickPreviewBubble = false
 
     // MARK: - Init
 
@@ -35,7 +37,10 @@ final class WindowCoordinator {
 
         controlPanelWindow = ControlPanelWindow(
             recordingEngine: recordingEngine,
-            annotationManager: annotationManager
+            annotationManager: annotationManager,
+            onStopRequested: { [weak self] in
+                self?.hideOverlays()
+            }
         )
 
         cameraBubbleWindow = CameraBubbleWindow(
@@ -76,12 +81,37 @@ final class WindowCoordinator {
 
     func hideOverlays() {
         controlPanelWindow?.orderOut(nil)
-        cameraBubbleWindow?.orderOut(nil)
+        if !showsQuickPreviewBubble {
+            cameraBubbleWindow?.orderOut(nil)
+        }
         annotationOverlayWindow?.orderOut(nil)
         speakerNotesWindow?.orderOut(nil)
         hideCountdownOverlay()
         annotationManager.isAnnotating = false
         cursorTracker.stopTracking()
+    }
+
+    func showQuickPreviewBubble() {
+        showsQuickPreviewBubble = true
+        refreshQuickPreviewBubble()
+    }
+
+    func refreshQuickPreviewBubble() {
+        guard showsQuickPreviewBubble else { return }
+        guard recordingEngine.state == .idle else { return }
+
+        if recordingEngine.settings.mode.includesCamera {
+            cameraBubbleWindow?.orderFront(nil)
+        } else {
+            cameraBubbleWindow?.orderOut(nil)
+        }
+    }
+
+    func hideQuickPreviewBubble() {
+        showsQuickPreviewBubble = false
+        if recordingEngine.state == .idle {
+            cameraBubbleWindow?.orderOut(nil)
+        }
     }
 
     func toggleSpeakerNotes() {
@@ -128,7 +158,16 @@ final class WindowCoordinator {
     }
 
     @objc private func handleStateObservationTick() {
-        switch recordingEngine.state {
+        let state = recordingEngine.state
+
+        if state == .idle, lastObservedState != .idle {
+            hideOverlays()
+        }
+        lastObservedState = state
+
+        refreshQuickPreviewBubble()
+
+        switch state {
         case let .countdown(seconds):
             showCountdownOverlay(secondsRemaining: seconds)
         default:

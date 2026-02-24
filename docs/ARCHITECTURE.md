@@ -103,6 +103,9 @@ Mool/
 User clicks menu bar status item
       │
       ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
+      │               Popover show/close drives quick preview lifecycle:
+      │               open => prepareQuickRecorderContext() + show CameraBubbleWindow
+      │               close => teardownQuickRecorderContext() + hide quick preview bubble
       └─ Right click → context menu
                  │
                  ▼
@@ -209,6 +212,7 @@ recording / paused ──stop()──▶ finishing ──onWriteComplete()──
 ```
 
 All state is published via `@Observable` so SwiftUI views and overlay panels update reactively.
+`WindowCoordinator` also hides overlays on an explicit stop request from the HUD so controls are removed immediately while writer finalization completes.
 
 ---
 

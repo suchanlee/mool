@@ -6,9 +6,11 @@ import SwiftUI
 struct ControlPanelView: View {
     @Environment(RecordingEngine.self) private var engine
     @Bindable var annotationManager: AnnotationManager
+    let onStopRequested: () -> Void
 
-    init(annotationManager: AnnotationManager) {
+    init(annotationManager: AnnotationManager, onStopRequested: @escaping () -> Void = {}) {
         self.annotationManager = annotationManager
+        self.onStopRequested = onStopRequested
     }
 
     var body: some View {
@@ -46,6 +48,7 @@ struct ControlPanelView: View {
 
                 // Stop
                 HUDButton(icon: "stop.fill", tint: .red) {
+                    onStopRequested()
                     Task { await engine.stopRecording() }
                 }
                 .accessibilityIdentifier("hud.stop")
@@ -81,7 +84,7 @@ struct ControlPanelView: View {
     @ViewBuilder
     private var recordingIndicator: some View {
         switch engine.state {
-        case .countdown(let n):
+        case let .countdown(n):
             Text("\(n)")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(.white)

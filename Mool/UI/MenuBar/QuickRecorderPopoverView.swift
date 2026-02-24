@@ -13,6 +13,7 @@ struct QuickRecorderPopoverView: View {
     let onStartRecording: () -> Void
     let onOpenLibrary: () -> Void
     let onOpenSettings: () -> Void
+    let onCameraVisibilityChanged: () -> Void
 
     @State private var captureTab: QuickCaptureTab = .display
     @State private var cameras: [AVCaptureDevice] = []
@@ -30,11 +31,7 @@ struct QuickRecorderPopoverView: View {
         .frame(width: 320)
         .task {
             captureTab = engine.settings.selectedWindowID == nil ? .display : .window
-            await engine.prepareQuickRecorderContext()
             refreshInputDevices()
-        }
-        .onDisappear {
-            engine.teardownQuickRecorderContext()
         }
     }
 
@@ -50,7 +47,6 @@ struct QuickRecorderPopoverView: View {
         }
     }
 
-    @ViewBuilder
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Video Source")
@@ -92,7 +88,7 @@ struct QuickRecorderPopoverView: View {
                     }
                 )) {
                     Text("No Window")
-                        .tag(Optional<CGWindowID>.none)
+                        .tag(CGWindowID?.none)
                     ForEach(engine.availableSources.windows, id: \.windowID) { window in
                         Text(window.title ?? window.owningApplication?.applicationName ?? "Window \(window.windowID)")
                             .tag(Optional(window.windowID))
@@ -109,40 +105,24 @@ struct QuickRecorderPopoverView: View {
                 get: { engine.settings.mode.includesCamera },
                 set: { newValue in
                     engine.setCameraEnabled(newValue)
+                    onCameraVisibilityChanged()
                     refreshInputDevices()
                 }
             ))
 
-            HStack(spacing: 10) {
-                if engine.settings.mode.includesCamera {
-                    CameraPreviewRepresentable(previewLayer: engine.cameraManager.previewLayer)
-                        .frame(width: 92, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white.opacity(0.25), lineWidth: 1)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.secondary.opacity(0.15))
-                        .frame(width: 92, height: 64)
-                        .overlay(Text("Off").font(.caption).foregroundStyle(.secondary))
+            Picker("Camera Device", selection: Binding(
+                get: { engine.settings.selectedCameraUniqueID },
+                set: { newValue in
+                    engine.selectCameraDevice(uniqueID: newValue)
                 }
-
-                Picker("Camera Device", selection: Binding(
-                    get: { engine.settings.selectedCameraUniqueID },
-                    set: { newValue in
-                        engine.selectCameraDevice(uniqueID: newValue)
-                    }
-                )) {
-                    Text("Default Camera").tag(Optional<String>.none)
-                    ForEach(cameras, id: \.uniqueID) { camera in
-                        Text(camera.localizedName).tag(Optional(camera.uniqueID))
-                    }
+            )) {
+                Text("Default Camera").tag(String?.none)
+                ForEach(cameras, id: \.uniqueID) { camera in
+                    Text(camera.localizedName).tag(Optional(camera.uniqueID))
                 }
-                .labelsHidden()
-                .disabled(!engine.settings.mode.includesCamera)
             }
+            .labelsHidden()
+            .disabled(!engine.settings.mode.includesCamera)
         }
     }
 
@@ -162,7 +142,7 @@ struct QuickRecorderPopoverView: View {
                     engine.selectMicrophoneDevice(uniqueID: newValue)
                 }
             )) {
-                Text("Default Microphone").tag(Optional<String>.none)
+                Text("Default Microphone").tag(String?.none)
                 ForEach(microphones, id: \.uniqueID) { microphone in
                     Text(microphone.localizedName).tag(Optional(microphone.uniqueID))
                 }
