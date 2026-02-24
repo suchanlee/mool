@@ -206,10 +206,26 @@ struct TrimRecordingSheet: View {
     let onTrimmed: (SavedRecording) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var trimStart: Double = 0
-    @State private var trimEnd: Double = 0
+    @State private var trimStart: Double
+    @State private var trimEnd: Double
     @State private var isSaving = false
     @State private var errorMessage: String?
+
+    private let minimumTrimSpan: Double = 0.1
+
+    init(
+        recording: SavedRecording,
+        storageManager: StorageManager,
+        onTrimmed: @escaping (SavedRecording) -> Void
+    ) {
+        self.recording = recording
+        self.storageManager = storageManager
+        self.onTrimmed = onTrimmed
+
+        let duration = max(recording.duration ?? 0, 0)
+        _trimStart = State(initialValue: 0)
+        _trimEnd = State(initialValue: duration)
+    }
 
     private var totalDuration: Double {
         max(recording.duration ?? 0, 0)
@@ -217,6 +233,14 @@ struct TrimRecordingSheet: View {
 
     private var selectedDuration: Double {
         max(trimEnd - trimStart, 0)
+    }
+
+    private var canEditTrimRange: Bool {
+        totalDuration >= minimumTrimSpan
+    }
+
+    private var sliderStep: Double {
+        max(0.01, min(0.1, totalDuration / 200))
     }
 
     var body: some View {
@@ -229,7 +253,7 @@ struct TrimRecordingSheet: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
-            if totalDuration > 0 {
+            if canEditTrimRange {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -242,7 +266,7 @@ struct TrimRecordingSheet: View {
                         Slider(
                             value: $trimStart,
                             in: 0 ... trimEnd,
-                            step: 0.1
+                            step: sliderStep
                         )
                     }
 
@@ -257,7 +281,7 @@ struct TrimRecordingSheet: View {
                         Slider(
                             value: $trimEnd,
                             in: trimStart ... totalDuration,
-                            step: 0.1
+                            step: sliderStep
                         )
                     }
 
@@ -270,6 +294,9 @@ struct TrimRecordingSheet: View {
                     }
                     .font(.subheadline)
                 }
+            } else if totalDuration > 0 {
+                Text("Recording is too short to trim.")
+                    .foregroundStyle(.secondary)
             } else {
                 Text("Unable to load duration for this recording.")
                     .foregroundStyle(.secondary)
@@ -293,15 +320,11 @@ struct TrimRecordingSheet: View {
                     saveTrim()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isSaving || totalDuration <= 0 || selectedDuration < 0.1)
+                .disabled(isSaving || !canEditTrimRange || selectedDuration < minimumTrimSpan)
             }
         }
         .padding(20)
         .frame(minWidth: 430)
-        .onAppear {
-            trimStart = 0
-            trimEnd = totalDuration
-        }
     }
 
     private func saveTrim() {
