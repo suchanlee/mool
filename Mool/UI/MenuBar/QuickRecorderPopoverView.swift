@@ -27,8 +27,8 @@ struct QuickRecorderPopoverView: View {
             systemAudioRow
             startButton
         }
-        .padding(14)
-        .frame(width: 340)
+        .padding(12)
+        .frame(width: 332)
         .task {
             captureTab = engine.settings.selectedWindowID == nil ? .display : .window
             refreshInputDevices()
@@ -37,12 +37,12 @@ struct QuickRecorderPopoverView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 10, height: 10)
-            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 10, height: 10)
-            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 10, height: 10)
+            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 9, height: 9)
+            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 9, height: 9)
+            Circle().fill(Color.secondary.opacity(0.25)).frame(width: 9, height: 9)
             Spacer()
             Text("Mool")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary)
         }
     }
@@ -88,7 +88,7 @@ struct QuickRecorderPopoverView: View {
                 subtitle: sourceSubtitle,
                 trailing: {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             )
@@ -115,7 +115,7 @@ struct QuickRecorderPopoverView: View {
                     subtitle: engine.settings.mode.includesCamera ? "Click to change camera" : "Camera is turned off",
                     trailing: {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .opacity(engine.settings.mode.includesCamera ? 1 : 0.35)
                     }
@@ -151,7 +151,7 @@ struct QuickRecorderPopoverView: View {
                     subtitle: engine.settings.captureMicrophone ? "Click to change microphone" : "Microphone is disabled",
                     trailing: {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .opacity(engine.settings.captureMicrophone ? 1 : 0.35)
                     }
@@ -170,21 +170,21 @@ struct QuickRecorderPopoverView: View {
     private var systemAudioRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "speaker.wave.2.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.primary)
-                .frame(width: 24, alignment: .center)
+                .frame(width: 22, alignment: .center)
             Text("System Audio")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
             Spacer()
             TogglePill(isOn: engine.settings.captureSystemAudio) {
                 engine.settings.captureSystemAudio.toggle()
                 engine.settings.save()
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
         )
     }
@@ -192,12 +192,12 @@ struct QuickRecorderPopoverView: View {
     private var startButton: some View {
         Button(action: onStartRecording) {
             Text("Start recording")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color(red: 1.0, green: 0.47, blue: 0.25))
                 )
         }
@@ -279,19 +279,19 @@ private struct RowCard<Trailing: View>: View {
     @ViewBuilder let trailing: () -> Trailing
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: iconName)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(iconColor)
-                .frame(width: 24, alignment: .center)
+                .frame(width: 22, alignment: .center)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -299,10 +299,10 @@ private struct RowCard<Trailing: View>: View {
             Spacer()
             trailing()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
         )
     }
@@ -315,10 +315,10 @@ private struct TogglePill: View {
     var body: some View {
         Button(action: action) {
             Text(isOn ? "On" : "Off")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
                 .background(
                     Capsule(style: .continuous)
                         .fill(isOn ? Color(red: 0.22, green: 0.78, blue: 0.86) : Color(red: 0.94, green: 0.36, blue: 0.12))
