@@ -173,6 +173,7 @@ struct VideoDetailView: View {
     private let editControlRowHeight: CGFloat = 32
     private let editControlSpacing: CGFloat = 8
     private let editControlColumnWidth: CGFloat = 145
+    private let editControlCornerRadius: CGFloat = 10
 
     private var timelineHeight: CGFloat {
         (editControlRowHeight * 3) + (editControlSpacing * 2)
@@ -274,10 +275,13 @@ struct VideoDetailView: View {
                         }
                         .font(.system(size: 13, weight: .semibold))
                         .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
-                        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
+                        .background(
+                            Color.white.opacity(0.1),
+                            in: RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                        )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
                                 .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
                         )
                     }
@@ -288,18 +292,32 @@ struct VideoDetailView: View {
                     } label: {
                         Text(isSavingEdit ? "Saving..." : "Save")
                             .font(.system(size: 13, weight: .semibold))
-                            .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
+                    .background(
+                        canSaveEdit && !isSavingEdit ? Color.accentColor : Color.accentColor.opacity(0.5),
+                        in: RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                    )
+                    .foregroundStyle(.white)
                     .disabled(isSavingEdit || !canSaveEdit)
 
                     Button("Cancel") {
                         isEditing = false
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
                     .disabled(isSavingEdit)
                     .font(.system(size: 13, weight: .semibold))
-                    .frame(maxWidth: .infinity, minHeight: editControlRowHeight)
+                    .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
+                    .background(
+                        Color.white.opacity(isSavingEdit ? 0.05 : 0.1),
+                        in: RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                            .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                    )
                 }
                 .frame(width: editControlColumnWidth, height: timelineHeight, alignment: .top)
             }
