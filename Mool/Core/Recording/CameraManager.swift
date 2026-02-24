@@ -1,13 +1,12 @@
+import AppKit
 import AVFoundation
 import CoreVideo
-import AppKit
 
 // MARK: - Camera Manager
 
 @MainActor
 final class CameraManager: NSObject, CameraManaging {
-
-    // Live preview layer for display in the camera bubble
+    /// Live preview layer for display in the camera bubble
     let previewLayer = AVCaptureVideoPreviewLayer()
 
     private let session = AVCaptureSession()
@@ -18,9 +17,9 @@ final class CameraManager: NSObject, CameraManaging {
 
     /// Called from the capture queue — must be thread-safe.
     nonisolated(unsafe) var onFrame: ((CVPixelBuffer, CMTime) -> Void)?
-    /// Mirror is applied as a transform on the preview layer and flagged for the compositor.
+    /// Mirror is applied to both preview and video output connection.
     var isMirrored: Bool = false {
-        didSet { applyMirrorToPreview() }
+        didSet { applyMirrorConfiguration() }
     }
 
     private(set) var isRunning: Bool = false
@@ -35,8 +34,8 @@ final class CameraManager: NSObject, CameraManaging {
         session.sessionPreset = .high
 
         guard let device = preferredCameraDevice() ??
-                           AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
-                           AVCaptureDevice.default(for: .video)
+            AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ??
+            AVCaptureDevice.default(for: .video)
         else { throw CameraError.noDeviceFound }
         selectedCameraUniqueID = device.uniqueID
 
@@ -64,6 +63,7 @@ final class CameraManager: NSObject, CameraManaging {
         // Hook up preview layer
         previewLayer.session = session
         previewLayer.videoGravity = .resizeAspectFill
+        applyMirrorConfiguration()
 
         session.commitConfiguration()
         isConfigured = true
@@ -111,16 +111,21 @@ final class CameraManager: NSObject, CameraManaging {
         session.addInput(newInput)
         videoInput = newInput
         session.commitConfiguration()
-        applyMirrorToPreview()
+        applyMirrorConfiguration()
     }
 
     // MARK: - Private
 
-    private func applyMirrorToPreview() {
+    private func applyMirrorConfiguration() {
         // Mirror the preview by flipping the CALayer transform
         previewLayer.transform = isMirrored
             ? CATransform3DMakeScale(-1, 1, 1)
             : CATransform3DIdentity
+
+        if let connection = videoOutput?.connection(with: .video), connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = isMirrored
+        }
     }
 
     private func preferredCameraDevice() -> AVCaptureDevice? {

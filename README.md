@@ -9,6 +9,7 @@ A local-only macOS screen recorder inspired by Loom. Record your screen, camera,
 - **Screen + Camera recording** — full display, specific window, or camera only
 - **Floating recording HUD** — non-activating overlay that never steals focus from the app you're recording
 - **Draggable camera bubble** — circular webcam overlay, movable anywhere with HUD size presets
+- **Flip camera** — mirror your camera in quick recorder and recording settings
 - **Live annotations** — draw on screen during recording; cursor highlight, spotlight, and click burst effects
 - **Speaker notes** — floating notes panel visible only to you
 - **Local library** — browse, preview, rename, and delete recordings via AVPlayer

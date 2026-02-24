@@ -120,6 +120,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] On failed recording start, fully rollback capture state (camera/audio/writer), hide overlays, and return to idle
 - [x] Remove global keyboard shortcuts and shortcut settings UI
 - [x] Add app icon artwork (abstract water droplet) across all required macOS AppIcon sizes
+- [x] Add flip camera support (quick recorder toggle + live mirror apply to preview and camera-only output)
 - [x] Recording file auto-named with timestamp
 
 ---

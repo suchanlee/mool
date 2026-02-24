@@ -8,8 +8,13 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            RecordingSettingsTab(settings: engine.settings)
-                .tabItem { Label("Recording", systemImage: "record.circle") }
+            RecordingSettingsTab(
+                settings: engine.settings,
+                onMirrorCameraChanged: { mirrored in
+                    engine.setCameraMirrored(mirrored)
+                }
+            )
+            .tabItem { Label("Recording", systemImage: "record.circle") }
 
             StorageSettingsTab(storageManager: storageManager, settings: engine.settings)
                 .tabItem { Label("Storage", systemImage: "internaldrive") }
@@ -25,6 +30,15 @@ struct SettingsView: View {
 
 struct RecordingSettingsTab: View {
     @Bindable var settings: RecordingSettings
+    let onMirrorCameraChanged: (Bool) -> Void
+
+    init(
+        settings: RecordingSettings,
+        onMirrorCameraChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.settings = settings
+        self.onMirrorCameraChanged = onMirrorCameraChanged
+    }
 
     var body: some View {
         Form {
@@ -69,7 +83,9 @@ struct RecordingSettingsTab: View {
         .onChange(of: settings.mode) { _, _ in settings.save() }
         .onChange(of: settings.quality) { _, _ in settings.save() }
         .onChange(of: settings.countdownDuration) { _, _ in settings.save() }
-        .onChange(of: settings.mirrorCamera) { _, _ in settings.save() }
+        .onChange(of: settings.mirrorCamera) { _, newValue in
+            onMirrorCameraChanged(newValue)
+        }
         .onChange(of: settings.captureMicrophone) { _, _ in settings.save() }
         .onChange(of: settings.captureSystemAudio) { _, _ in settings.save() }
         .onChange(of: settings.launchAtLogin) { _, _ in settings.save() }

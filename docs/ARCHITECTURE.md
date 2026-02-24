@@ -102,7 +102,7 @@ Mool/
 ```
 User clicks menu bar status item
       │
-      ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
+      ├─ Left click → QuickRecorderPopoverView (display/window, camera, camera flip, mic, system audio)
       │               Popover show/close drives quick preview lifecycle:
       │               UI uses rounded control rows + pill toggles + single primary start action
       │               window picker lists app-owned top-level windows only
@@ -121,6 +121,7 @@ User clicks menu bar status item
       │
       ├─ CameraManager.startCapture()
       │       AVCaptureSession → CVPixelBuffer (camera frames)
+      │       Mirror toggle applies to preview + camera output connection
       │
       ├─ AudioManager.startCapture()
       │       AVCaptureSession → CMSampleBuffer (microphone audio)

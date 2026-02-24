@@ -94,12 +94,20 @@ struct QuickRecorderPopoverView: View {
                         engine.selectCameraDevice(uniqueID: camera.uniqueID)
                     }
                 }
+                Divider()
+                Toggle(
+                    "Flip Camera",
+                    isOn: Binding(
+                        get: { engine.settings.mirrorCamera },
+                        set: { engine.setCameraMirrored($0) }
+                    )
+                )
             } label: {
                 RowCard(
                     iconName: engine.settings.mode.includesCamera ? "video.fill" : "video.slash",
                     iconColor: engine.settings.mode.includesCamera ? .primary : .red.opacity(0.8),
                     title: engine.settings.mode.includesCamera ? selectedCameraName : "No Camera",
-                    subtitle: engine.settings.mode.includesCamera ? "Click to change camera" : "Camera is turned off",
+                    subtitle: engine.settings.mode.includesCamera ? cameraSubtitle : "Camera is turned off",
                     trailingInset: 54,
                     trailing: {
                         Image(systemName: "chevron.down")
@@ -234,6 +242,14 @@ struct QuickRecorderPopoverView: View {
             return microphone.localizedName
         }
         return microphones.first?.localizedName ?? "Default Microphone"
+    }
+
+    private var cameraSubtitle: String {
+        if engine.settings.mirrorCamera {
+            "Click to change camera • Flipped"
+        } else {
+            "Click to change camera"
+        }
     }
 
     private func setCaptureTab(_ tab: QuickCaptureTab) {

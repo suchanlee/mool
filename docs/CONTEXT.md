@@ -69,7 +69,7 @@ mool/
         ├── WindowCoordinator.swift     Owns all overlay NSPanels
         ├── MenuBar/
         │   ├── MenuBarController.swift NSStatusItem; left-click quick recorder, right-click context menu
-        │   └── QuickRecorderPopoverView.swift  Loom-style rounded source/camera/audio quick controls with pill toggles
+        │   └── QuickRecorderPopoverView.swift  Loom-style rounded source/camera/audio quick controls with pill toggles (+ camera flip)
         ├── SourcePicker/
         │   ├── SourcePickerView.swift  Pre-recording SwiftUI sheet (mode/display/window/quality)
         │   └── SourcePickerController.swift  Presents SourcePickerView as NSWindow
@@ -125,7 +125,7 @@ AppDelegate
 
 1. User clicks the menu bar item.
 2. Entry paths:
-   - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
+   - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/flip/mic toggles.
      - On popover open, `MenuBarController` requests any missing screen/camera/mic permissions that are still `.notDetermined`.
      - While the popover is open, `MenuBarController` prepares quick-recorder context and shows `CameraBubbleWindow` as the preview surface.
      - Popover behavior is app-defined so interacting with the camera bubble (move) does not auto-dismiss it.
@@ -266,6 +266,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 - Annotation tools: pen, eraser, highlighter, cursor highlight ring, click burst, spotlight
 - Source picker UI (mode card + display grid + window list)
 - Menu bar quick recorder popover (left-click) with display/window, camera preview/device, microphone device, system audio controls
+- Quick recorder camera menu includes a live "Flip Camera" toggle (mirrors preview and camera-only captured feed)
 - Right-click context menu preserved for library/settings/quit actions
 - Library view (AVPlayer preview, delete, rename, reveal in Finder)
 - Settings (Recording, Storage, About tabs)

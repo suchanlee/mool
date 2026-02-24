@@ -225,6 +225,12 @@ final class RecordingEngine {
         }
     }
 
+    func setCameraMirrored(_ mirrored: Bool) {
+        settings.mirrorCamera = mirrored
+        settings.save()
+        cameraManager.isMirrored = mirrored
+    }
+
     // MARK: - Private
 
     private func runCountdown() async {
