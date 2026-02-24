@@ -159,7 +159,7 @@ All overlay windows share these properties:
 | Window | Type | Interaction |
 |---|---|---|
 | ControlPanelWindow | NSPanel, `.nonactivatingPanel` | Click buttons, does NOT steal focus |
-| CameraBubbleWindow | NSPanel, borderless | Draggable, resizable corner handle |
+| CameraBubbleWindow | NSPanel, borderless | Draggable + resizable via explicit SwiftUI gestures that update panel frame |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |
 | CountdownOverlayWindow | NSWindow, borderless | Full-screen dim + large pre-roll countdown number |

@@ -99,6 +99,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Menu bar icon animates during recording (red icon when recording)
 - [x] Quick recorder camera preview uses camera bubble while popover is open, and fully tears down on close
 - [x] Fix cropped display recordings by aligning writer output dimensions with screen stream dimensions
+- [x] Restore camera bubble drag + resize behavior in both quick preview and recording sessions
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
 - [x] Multiple display support — display picker in source picker UI
 - [x] Window capture mode UI — window picker in source picker UI

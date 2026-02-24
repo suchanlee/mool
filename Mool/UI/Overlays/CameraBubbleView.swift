@@ -1,5 +1,5 @@
-import AVFoundation
 import AppKit
+import AVFoundation
 import SwiftUI
 
 // MARK: - Camera Bubble View
@@ -7,9 +7,12 @@ import SwiftUI
 /// Circular camera preview with drag support and a corner resize handle.
 struct CameraBubbleView: View {
     let cameraManager: any CameraManaging
+    let onMoveBy: (_ deltaX: CGFloat, _ deltaY: CGFloat) -> Void
+    let onResizeBy: (_ delta: CGFloat) -> Void
 
-    @State private var size: CGFloat = 200
     @State private var isDraggingResize = false
+    @State private var lastMoveTranslation: CGSize = .zero
+    @State private var lastResizeTranslation: CGSize = .zero
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -26,16 +29,40 @@ struct CameraBubbleView: View {
                 .padding(5)
                 .background(.black.opacity(0.4), in: Circle())
                 .padding(4)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            let delta = (value.translation.width + value.translation.height) / 2
-                            size = max(100, min(400, size + delta))
-                        }
-                )
+                .gesture(resizeGesture)
         }
-        .frame(width: size, height: size)
-        .animation(.interactiveSpring(), value: size)
+        .contentShape(Circle())
+        .simultaneousGesture(moveGesture)
+    }
+
+    private var moveGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard !isDraggingResize else { return }
+                let stepX = value.translation.width - lastMoveTranslation.width
+                let stepY = value.translation.height - lastMoveTranslation.height
+                lastMoveTranslation = value.translation
+                onMoveBy(stepX, stepY)
+            }
+            .onEnded { _ in
+                lastMoveTranslation = .zero
+            }
+    }
+
+    private var resizeGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                isDraggingResize = true
+                let stepX = value.translation.width - lastResizeTranslation.width
+                let stepY = value.translation.height - lastResizeTranslation.height
+                lastResizeTranslation = value.translation
+                let delta = (stepX + stepY) / 2
+                onResizeBy(delta)
+            }
+            .onEnded { _ in
+                isDraggingResize = false
+                lastResizeTranslation = .zero
+            }
     }
 }
 
