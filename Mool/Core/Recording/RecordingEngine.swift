@@ -59,11 +59,6 @@ final class RecordingEngine {
         guard state == .idle else { return }
         runtimeErrorMessage = nil
 
-        if settings.mode.includesScreen, !CGPreflightScreenCaptureAccess() {
-            let granted = CGRequestScreenCaptureAccess()
-            guard granted else { throw ScreenCaptureError.permissionDenied }
-        }
-
         // Refresh available sources
         await availableSources.refresh()
 

@@ -113,6 +113,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Window capture mode UI — window picker in source picker UI
 - [x] Camera-only mode — exposed via source picker mode selector
 - [x] Graceful handling of permission denial (PermissionsView guides user to System Settings)
+- [x] Request screen/camera/microphone permissions on quick recorder popover open (not first at record start)
 - [x] Handle display sleep / disconnect during recording (auto-stop + user-facing alert)
 - [ ] Keyboard shortcut conflict detection
 - [x] Recording file auto-named with timestamp

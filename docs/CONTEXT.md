@@ -127,6 +127,7 @@ AppDelegate
 1. User clicks the menu bar item (or presses ⌘⇧R).
 2. Entry paths:
    - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/mic toggles.
+     - On popover open, `MenuBarController` requests any missing screen/camera/mic permissions that are still `.notDetermined`.
      - While the popover is open, `MenuBarController` prepares quick-recorder context and shows `CameraBubbleWindow` as the preview surface.
      - Popover behavior is app-defined so interacting with the camera bubble (move/resize) does not auto-dismiss it.
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.
@@ -135,6 +136,7 @@ AppDelegate
    - Keyboard shortcut: `WindowCoordinator.showSourcePicker()` opens full source picker.
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
+   - Validates required permissions (screen preflight for screen-including modes)
    - Refreshes `availableSources` (SCShareableContent enumeration)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
@@ -217,7 +219,7 @@ Our custom keyboard shortcut struct is named **`RecordingShortcut`** (not `Keybo
 
 | Permission | API | Required |
 |---|---|---|
-| Screen Recording | `SCShareableContent.excludingDesktopWindows` triggers TCC prompt | Yes |
+| Screen Recording | `CGPreflightScreenCaptureAccess` + `CGRequestScreenCaptureAccess` | Yes |
 | Camera | `AVCaptureDevice.requestAccess(for: .video)` | Yes |
 | Microphone | `AVCaptureDevice.requestAccess(for: .audio)` | Yes |
 | Accessibility | `AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": false])` | Optional (cursor effects) |

@@ -105,7 +105,8 @@ User clicks menu bar status item
       ├─ Left click → QuickRecorderPopoverView (display/window, camera, mic, system audio)
       │               Popover show/close drives quick preview lifecycle:
       │               UI uses rounded control rows + pill toggles + single primary start action
-      │               open => prepareQuickRecorderContext() + show CameraBubbleWindow
+      │               open => request missing screen/camera/mic permissions, then
+      │                       prepareQuickRecorderContext() + show CameraBubbleWindow
       │               interaction => outside-click monitor keeps bubble interactions active
       │               close => teardownQuickRecorderContext() + hide quick preview bubble
       └─ Right click → context menu
@@ -186,7 +187,7 @@ All overlay windows share these properties:
 
 | Permission | Purpose | API |
 |---|---|---|
-| Screen Recording | SCStream access | `SCShareableContent.getExcludingDesktopWindows` triggers TCC prompt |
+| Screen Recording | SCStream access | `CGPreflightScreenCaptureAccess` + `CGRequestScreenCaptureAccess` |
 | Camera | Camera preview and capture | `AVCaptureDevice.requestAccess(for: .video)` |
 | Microphone | Mic audio track | `AVCaptureDevice.requestAccess(for: .audio)` |
 | Accessibility | CGEvent tap for cursor tracking | `AXIsProcessTrustedWithOptions` |

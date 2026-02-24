@@ -16,6 +16,8 @@ enum PermissionStatus {
 @Observable
 @MainActor
 final class PermissionManager {
+    private let screenPermissionRequestedKey = "MoolScreenPermissionRequested"
+
     var screenRecording: PermissionStatus = .notDetermined
     var camera: PermissionStatus = .notDetermined
     var microphone: PermissionStatus = .notDetermined
@@ -39,14 +41,21 @@ final class PermissionManager {
     // MARK: - Screen Recording
 
     func checkScreenRecording() async {
-        screenRecording = CGPreflightScreenCaptureAccess() ? .granted : .denied
+        if CGPreflightScreenCaptureAccess() {
+            screenRecording = .granted
+            return
+        }
+
+        let hasRequested = UserDefaults.standard.bool(forKey: screenPermissionRequestedKey)
+        screenRecording = hasRequested ? .denied : .notDetermined
     }
 
-    func requestScreenRecording() {
+    func requestScreenRecording(openSettingsOnDeny: Bool = true) {
+        UserDefaults.standard.set(true, forKey: screenPermissionRequestedKey)
         let granted = CGRequestScreenCaptureAccess()
         screenRecording = granted ? .granted : .denied
 
-        if !granted,
+        if openSettingsOnDeny, !granted,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
         {
             NSWorkspace.shared.open(url)

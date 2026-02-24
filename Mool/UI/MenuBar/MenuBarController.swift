@@ -222,6 +222,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         quickPreviewTask?.cancel()
         quickPreviewTask = Task { [weak self] in
             guard let self else { return }
+            await requestMissingRecordingPermissionsForQuickRecorder()
+            guard !Task.isCancelled else { return }
             await recordingEngine.prepareQuickRecorderContext()
             guard !Task.isCancelled, quickRecorderPopover.isShown else { return }
             windowCoordinator.showQuickPreviewBubble()
@@ -253,6 +255,27 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         alert.informativeText = error.localizedDescription
         alert.alertStyle = .warning
         alert.runModal()
+    }
+
+    private func requestMissingRecordingPermissionsForQuickRecorder() async {
+        await permissionManager.checkScreenRecording()
+        permissionManager.checkCamera()
+        permissionManager.checkMicrophone()
+
+        if permissionManager.screenRecording == .notDetermined {
+            permissionManager.requestScreenRecording(openSettingsOnDeny: false)
+            await permissionManager.checkScreenRecording()
+        }
+
+        if permissionManager.camera == .notDetermined {
+            await permissionManager.requestCamera()
+            permissionManager.checkCamera()
+        }
+
+        if permissionManager.microphone == .notDetermined {
+            await permissionManager.requestMicrophone()
+            permissionManager.checkMicrophone()
+        }
     }
 
     // MARK: - Popover Dismissal Monitoring
