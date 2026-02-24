@@ -239,17 +239,18 @@ struct VideoDetailView: View {
                 Button {
                     togglePlayPauseInEditor()
                 } label: {
-                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.white.opacity(0.08))
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    .frame(width: 64, height: timelineHeight)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .frame(width: 64, height: timelineHeight)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
-                )
 
                 TrimTimelineStrip(
                     thumbnails: thumbnails,
@@ -299,34 +300,35 @@ struct VideoDetailView: View {
                     Button {
                         saveEditedVersion()
                     } label: {
-                        Text(isSavingEdit ? "Saving..." : "Save")
-                            .font(.system(size: 13, weight: .semibold))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                                .fill(canSaveEdit && !isSavingEdit ? Color.accentColor : Color.accentColor.opacity(0.5))
+                            Text(isSavingEdit ? "Saving..." : "Save")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
-                    .background(
-                        canSaveEdit && !isSavingEdit ? Color.accentColor : Color.accentColor.opacity(0.5),
-                        in: RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
-                    )
-                    .foregroundStyle(.white)
                     .disabled(isSavingEdit || !canSaveEdit)
 
-                    Button("Cancel") {
+                    Button {
                         isEditing = false
+                    } label: {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                                .fill(Color.white.opacity(isSavingEdit ? 0.05 : 0.1))
+                            RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
+                                .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                            Text("Cancel")
+                        }
+                        .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(isSavingEdit)
                     .font(.system(size: 13, weight: .semibold))
-                    .frame(maxWidth: .infinity, minHeight: editControlRowHeight, maxHeight: editControlRowHeight)
-                    .background(
-                        Color.white.opacity(isSavingEdit ? 0.05 : 0.1),
-                        in: RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: editControlCornerRadius, style: .continuous)
-                            .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
-                    )
                 }
                 .frame(width: editControlColumnWidth, height: timelineHeight, alignment: .top)
             }
@@ -558,13 +560,6 @@ struct TrimTimelineStrip: View {
     let minimumSpan: Double
     let playheadTime: Double?
 
-    @State private var activeHandle: DragHandle?
-
-    private enum DragHandle {
-        case start
-        case end
-    }
-
     private let handleVisualWidth: CGFloat = 16
     private let handleHitThreshold: CGFloat = 26
     private let trackCornerRadius: CGFloat = 10
@@ -618,17 +613,26 @@ struct TrimTimelineStrip: View {
                 handleView(height: height)
                     .offset(x: endX - handleVisualWidth / 2, y: 4)
                     .zIndex(2)
+
+                // Dedicated handle hit-zones make start/end dragging reliable.
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: handleHitThreshold * 2, height: height + 12)
+                    .offset(x: startX - handleHitThreshold, y: -2)
+                    .contentShape(Rectangle())
+                    .zIndex(3)
+                    .highPriorityGesture(startHandleDrag(trackMinX: trackMinX, trackWidth: trackWidth))
+
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: handleHitThreshold * 2, height: height + 12)
+                    .offset(x: endX - handleHitThreshold, y: -2)
+                    .contentShape(Rectangle())
+                    .zIndex(3)
+                    .highPriorityGesture(endHandleDrag(trackMinX: trackMinX, trackWidth: trackWidth))
             }
             .contentShape(Rectangle())
-            .highPriorityGesture(
-                trimDragGesture(
-                    width: width,
-                    trackMinX: trackMinX,
-                    trackWidth: trackWidth,
-                    startX: startX,
-                    endX: endX
-                )
-            )
+            .coordinateSpace(name: "trimStrip")
         }
     }
 
@@ -688,37 +692,21 @@ struct TrimTimelineStrip: View {
             .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
     }
 
-    private func trimDragGesture(
-        width _: CGFloat,
-        trackMinX: CGFloat,
-        trackWidth: CGFloat,
-        startX: CGFloat,
-        endX: CGFloat
-    ) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+    private func startHandleDrag(trackMinX: CGFloat, trackWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("trimStrip"))
             .onChanged { value in
-                if activeHandle == nil {
-                    let startDistance = abs(value.startLocation.x - startX)
-                    let endDistance = abs(value.startLocation.x - endX)
-
-                    guard min(startDistance, endDistance) <= handleHitThreshold else { return }
-                    activeHandle = startDistance <= endDistance ? .start : .end
-                }
-
-                guard let activeHandle else { return }
-
                 let progress = clamp(Double((value.location.x - trackMinX) / trackWidth), min: 0, max: 1)
                 let time = progress * duration
-
-                switch activeHandle {
-                case .start:
-                    startTime = min(time, endTime - minimumSpan)
-                case .end:
-                    endTime = max(time, startTime + minimumSpan)
-                }
+                startTime = min(time, endTime - minimumSpan)
             }
-            .onEnded { _ in
-                activeHandle = nil
+    }
+
+    private func endHandleDrag(trackMinX: CGFloat, trackWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("trimStrip"))
+            .onChanged { value in
+                let progress = clamp(Double((value.location.x - trackMinX) / trackWidth), min: 0, max: 1)
+                let time = progress * duration
+                endTime = max(time, startTime + minimumSpan)
             }
     }
 
