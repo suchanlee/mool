@@ -138,15 +138,25 @@ struct VideoDetailView: View {
     @Binding var player: AVPlayer?
 
     var body: some View {
-        VideoPlayer(player: player ?? AVPlayer())
-            .onAppear {
-                player = AVPlayer(url: recording.url)
-                player?.play()
+        VideoPlayer(player: player)
+            .task(id: recording.url) {
+                loadRecording(recording.url)
             }
             .onDisappear {
                 player?.pause()
                 player = nil
             }
+    }
+
+    @MainActor
+    private func loadRecording(_ url: URL) {
+        if player == nil {
+            player = AVPlayer(url: url)
+        } else {
+            player?.replaceCurrentItem(with: AVPlayerItem(url: url))
+        }
+        player?.seek(to: .zero)
+        player?.play()
     }
 }
 

@@ -203,6 +203,9 @@ File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
 - Delete, rename, reveal-in-Finder
 - Total disk usage computation
 
+Library playback behavior:
+- Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
+
 ---
 
 ## State Machine

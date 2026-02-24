@@ -82,7 +82,7 @@ mool/
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
         ├── Library/
-        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview; delete/rename/reveal
+        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with selection-driven item replacement; delete/rename/reveal
         ├── Settings/
         │   ├── SettingsView.swift      TabView: Recording, Shortcuts, Storage, About
         │   └── KeyboardShortcutRecorder.swift  NSView-based key capture + ShortcutField SwiftUI wrapper
