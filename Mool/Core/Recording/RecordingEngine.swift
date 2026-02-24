@@ -336,11 +336,26 @@ final class RecordingEngine {
     }
 
     private func captureSize() -> CGSize {
-        // Use selected display size, or fall back to 1080p
-        if settings.mode.includesScreen, !availableSources.displays.isEmpty {
-            let idx = min(settings.selectedDisplayIndex, availableSources.displays.count - 1)
-            let d = availableSources.displays[idx]
-            return CGSize(width: d.width, height: d.height)
+        // Keep writer dimensions aligned with ScreenCaptureManager stream config
+        // (`contentRect * 2`) to avoid cropped output frames.
+        if settings.mode.includesScreen {
+            if let windowID = settings.selectedWindowID,
+               let window = availableSources.windows.first(where: { $0.windowID == windowID })
+            {
+                return CGSize(
+                    width: max(window.frame.width * 2, 1),
+                    height: max(window.frame.height * 2, 1)
+                )
+            }
+
+            if !availableSources.displays.isEmpty {
+                let idx = min(settings.selectedDisplayIndex, availableSources.displays.count - 1)
+                let d = availableSources.displays[idx]
+                return CGSize(
+                    width: max(CGFloat(d.width) * 2, 1),
+                    height: max(CGFloat(d.height) * 2, 1)
+                )
+            }
         }
         return settings.quality.resolution
     }

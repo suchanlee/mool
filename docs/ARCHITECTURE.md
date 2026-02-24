@@ -122,6 +122,8 @@ User clicks menu bar status item
       │       AVCaptureSession → CMSampleBuffer (microphone audio)
       │
       └─ VideoWriter.start()
+              Writer output dimensions are matched to SCStream source dimensions
+              (screen/window content rect with the same 2x scaling)
               Receives screen video → adapts to AVAssetWriter input
               Receives camera frames → composites as PiP overlay
               Receives audio → writes AAC track

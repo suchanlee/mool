@@ -136,7 +136,7 @@ AppDelegate
    - Refreshes `availableSources` (SCShareableContent enumeration)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
-     - Creates `VideoWriter` → calls `writer.setup()`
+     - Creates `VideoWriter` with source dimensions aligned to `SCStream` resolution (`contentRect * 2`) → calls `writer.setup()`
      - Configures + starts `ScreenCaptureManager` (display or window)
      - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
      - Starts `AudioManager`, hooks `onMicBuffer → videoWriter.appendMicAudio()`

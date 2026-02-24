@@ -98,6 +98,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Countdown timer overlay before recording starts (full-screen splash overlay)
 - [x] Menu bar icon animates during recording (red icon when recording)
 - [x] Quick recorder camera preview uses camera bubble while popover is open, and fully tears down on close
+- [x] Fix cropped display recordings by aligning writer output dimensions with screen stream dimensions
 - [x] True SCStream pause — stopCapture() on pause, resumeCapture() on resume with PTS offset correction
 - [x] Multiple display support — display picker in source picker UI
 - [x] Window capture mode UI — window picker in source picker UI
