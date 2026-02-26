@@ -153,6 +153,11 @@ final class RecordingEngine {
         syncCameraPreviewForCurrentSettings()
     }
 
+    func ensureIdlePreviewState() {
+        guard state == .idle else { return }
+        syncCameraPreviewForCurrentSettings()
+    }
+
     func teardownQuickRecorderContext() {
         guard state == .idle else { return }
         cameraManager.setFrameHandler(nil)
@@ -262,6 +267,13 @@ final class RecordingEngine {
 
     private func beginCapture() async throws {
         if settings.mode.includesScreen {
+            if !CGPreflightScreenCaptureAccess() {
+                let granted = CGRequestScreenCaptureAccess()
+                guard granted else {
+                    throw ScreenCaptureError.permissionDenied
+                }
+            }
+
             guard CGPreflightScreenCaptureAccess() else {
                 throw ScreenCaptureError.permissionDenied
             }

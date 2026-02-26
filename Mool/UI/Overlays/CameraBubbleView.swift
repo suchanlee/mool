@@ -14,10 +14,17 @@ struct CameraBubbleView: View {
     @State private var hasStartedMoveDrag = false
 
     var body: some View {
-        CameraPreviewRepresentable(previewLayer: cameraManager.previewLayer)
-            .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 1.5))
-            .contentShape(Circle())
-            .simultaneousGesture(moveGesture)
+        ZStack {
+            Circle().fill(Color.black.opacity(0.001))
+            CameraPreviewRepresentable(previewLayer: cameraManager.previewLayer)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(Circle())
+                .allowsHitTesting(false)
+            Circle().strokeBorder(.white.opacity(0.3), lineWidth: 1.5)
+                .allowsHitTesting(false)
+        }
+        .contentShape(Circle())
+        .highPriorityGesture(moveGesture)
     }
 
     private var moveGesture: some Gesture {
@@ -59,6 +66,13 @@ final class CameraPreviewContainerView: NSView {
 
     override var isOpaque: Bool {
         false
+    }
+
+    override func layout() {
+        super.layout()
+        if let installedPreviewLayer {
+            updateCircularLayout(previewLayer: installedPreviewLayer)
+        }
     }
 
     func configure(previewLayer: AVCaptureVideoPreviewLayer) {

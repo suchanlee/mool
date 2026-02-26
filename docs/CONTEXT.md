@@ -126,15 +126,17 @@ AppDelegate
 1. User clicks the menu bar item.
 2. Entry paths:
    - Left click: `MenuBarController` opens `QuickRecorderPopoverView` for fast source/camera/flip/mic toggles.
-     - On popover open, `MenuBarController` requests any missing screen/camera/mic permissions that are still `.notDetermined`.
-     - While the popover is open, `MenuBarController` prepares quick-recorder context and shows `CameraBubbleWindow` as the preview surface.
+     - At app launch, camera/microphone toggles are normalized OFF when permission is `.notDetermined`.
+     - On popover open, `MenuBarController` shows the quick preview bubble shell immediately.
+     - It prepares quick-recorder context and refreshes `CameraBubbleWindow` once ready.
+     - Camera/microphone permissions are requested only when their toggles are turned ON.
      - Popover behavior is app-defined so interacting with the camera bubble (move) does not auto-dismiss it.
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.
      - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
-   - Validates required permissions (screen preflight for screen-including modes)
+   - Validates required permissions (screen permission is requested at recording start for screen-including modes)
    - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
@@ -269,6 +271,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 - Quick recorder camera menu includes a live "Flip Camera" toggle (mirrors preview and camera-only captured feed)
 - Right-click context menu preserved for library/settings/quit actions
 - Library view (AVPlayer preview, duration metadata, unified Edit mode with timeline strip/handles, trim + speed edited export, delete/rename/reveal actions)
+  - Trim timeline uses a single high-priority drag gesture that resolves the active handle (start/end) at drag begin, then applies translation-based updates for stable dual-handle dragging.
 - Settings (Recording, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording
@@ -278,6 +281,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 - Testing infrastructure:
   - `MoolTests` + `MoolUITests` targets in `project.yml`
   - Protocol-based DI seams for capture managers
+  - Trim-handle math tests covering both start/end drag clamping and handle-target resolution
   - Fake capture managers for unit tests
   - Unit test suites for settings/models/annotation/storage/engine state
   - XCUITest suites for launch/library/settings/source-picker flows

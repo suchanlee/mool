@@ -98,7 +98,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Raise trim handles above timeline track and add live playhead progress indicator with play/pause icon sync
 - [x] Fix editor interactions: reliable end-handle dragging and full-surface click targets for play/save/cancel controls
 - [x] Align trim outline/handles with timeline height and restore reliable start-handle drag behavior
-- [x] Stabilize both trim-handle drags using global-coordinate mapping and expanded explicit hit zones
+- [x] Stabilize both trim-handle drags using unified timeline drag routing with explicit start/end handle resolution at drag begin
 
 ---
 
@@ -129,7 +129,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Filter window capture list to app-owned top-level windows only (exclude desktop/system surfaces)
 - [x] Camera-only mode — exposed via source picker mode selector
 - [x] Graceful handling of permission denial (PermissionsView guides user to System Settings)
-- [x] Request screen/camera/microphone permissions on quick recorder popover open (not first at record start)
+- [x] Switch to demand-driven permission prompts: camera/mic prompt on toggle-on, screen prompt on recording start
+- [x] Show quick preview bubble immediately on popover open while permission/source setup finishes
 - [x] Handle display sleep / disconnect during recording (auto-stop + user-facing alert)
 - [x] On failed recording start, fully rollback capture state (camera/audio/writer), hide overlays, and return to idle
 - [x] Remove global keyboard shortcuts and shortcut settings UI
@@ -146,6 +147,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add `MoolTests` and `MoolUITests` targets in `project.yml`
 - [x] Add test fakes for capture managers
 - [x] Add unit tests for settings, models, annotation, storage, and engine state
+- [x] Add trim timeline drag math tests for both start/end handles and handle-target resolution
 - [x] Add accessibility identifiers used by UI tests
 - [x] Add XCUITest suites for launch, library, settings, and source picker flows
 - [x] Fix UI test bundle signing mismatch in local/dev builds (disable test target signing + hardened runtime)

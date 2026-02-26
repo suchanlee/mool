@@ -119,6 +119,7 @@ final class WindowCoordinator {
         controlPanelWindow?.orderOut(nil)
 
         if recordingEngine.settings.mode.includesCamera {
+            recordingEngine.ensureIdlePreviewState()
             cameraBubbleWindow?.orderFront(nil)
         } else {
             cameraBubbleWindow?.orderOut(nil)

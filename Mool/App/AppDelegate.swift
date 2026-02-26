@@ -5,7 +5,6 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-
     // MARK: - Singletons (owned here, injected via env)
 
     let permissionManager = PermissionManager()
@@ -20,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Init
 
     override init() {
-        self.recordingEngine = RecordingEngine(storageManager: storageManager)
+        recordingEngine = RecordingEngine(storageManager: storageManager)
         super.init()
     }
 
@@ -32,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Build overlays first, then the menu bar
         let coordinator = WindowCoordinator(recordingEngine: recordingEngine)
-        self.windowCoordinator = coordinator
+        windowCoordinator = coordinator
 
         menuBarController = MenuBarController(
             recordingEngine: recordingEngine,
@@ -40,7 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             permissionManager: permissionManager
         )
 
-        // Check permissions on launch (non-blocking)
+        // Apply default OFF for camera/mic when permission has never been decided.
+        permissionManager.checkCamera()
+        permissionManager.checkMicrophone()
+        applyUndeterminedAVPermissionDefaults()
+
+        // Check full permission state on launch (non-blocking).
         Task {
             await permissionManager.checkAllPermissions()
         }
@@ -50,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Stay alive even if all windows are closed (we live in the menu bar)
-        return false
+        false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -94,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             // Window scene routing can be delayed right after launch.
             // Retry for a short period so UI tests can reliably start on the intended screen.
-            for _ in 0..<12 {
+            for _ in 0 ..< 12 {
                 NSApp.setActivationPolicy(.regular)
                 NSApp.activate(ignoringOtherApps: true)
                 performUITestLaunchAction(action, coordinator: coordinator)
@@ -126,13 +130,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func isUITestLaunchActionSatisfied(_ action: UITestLaunchAction) -> Bool {
         switch action {
         case .openLibrary:
-            return NSApp.windows.contains { $0.isVisible && $0.title == "Library" }
+            NSApp.windows.contains { $0.isVisible && $0.title == "Library" }
         case .openSettings:
-            return NSApp.windows.contains {
+            NSApp.windows.contains {
                 $0.isVisible && ($0.title.contains("Settings") || $0.title.contains("Preferences"))
             }
         case .openSourcePicker:
-            return NSApp.windows.contains { $0.isVisible && $0.title == "New Recording" }
+            NSApp.windows.contains { $0.isVisible && $0.title == "New Recording" }
+        }
+    }
+
+    private func applyUndeterminedAVPermissionDefaults() {
+        if permissionManager.camera == .notDetermined, recordingEngine.settings.mode.includesCamera {
+            recordingEngine.setCameraEnabled(false)
+        }
+
+        if permissionManager.microphone == .notDetermined, recordingEngine.settings.captureMicrophone {
+            recordingEngine.settings.captureMicrophone = false
+            recordingEngine.settings.save()
         }
     }
 }
@@ -141,4 +156,4 @@ private enum UITestLaunchAction {
     case openLibrary
     case openSettings
     case openSourcePicker
-    }
+}

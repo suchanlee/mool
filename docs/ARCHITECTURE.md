@@ -106,8 +106,11 @@ User clicks menu bar status item
       │               Popover show/close drives quick preview lifecycle:
       │               UI uses rounded control rows + pill toggles + single primary start action
       │               window picker lists app-owned top-level windows only
-      │               open => request missing screen/camera/mic permissions, then
-      │                       prepareQuickRecorderContext() + show CameraBubbleWindow
+      │               app launch => normalize camera/mic toggles OFF when permission is .notDetermined
+      │               open => show CameraBubbleWindow shell immediately, then
+      │                       prepareQuickRecorderContext() + refresh quick preview bubble
+      │               toggle camera/mic ON => request corresponding permission on demand
+      │               start recording => request Screen Recording permission if needed
       │               interaction => outside-click monitor keeps bubble interactions active
       │               close => teardownQuickRecorderContext() + hide quick preview bubble
       └─ Right click → context menu
@@ -214,7 +217,7 @@ File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
 
 Library playback behavior:
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
-- Edit mode overlays a timeline strip with thumbnail rail and draggable in/out handles.
+- Edit mode overlays a timeline strip with thumbnail rail and draggable in/out handles; drag input is handled by a single high-priority timeline gesture that resolves start/end handle ownership at drag begin for stable mouse interaction.
 - Save in Edit mode writes a new edited recording (trimmed and speed-adjusted), preserving the original file.
 
 ---

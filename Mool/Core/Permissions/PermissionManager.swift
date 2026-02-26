@@ -77,6 +77,12 @@ final class PermissionManager {
         camera = granted ? .granted : .denied
     }
 
+    func openCameraSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     // MARK: - Microphone
 
     func checkMicrophone() {
@@ -90,6 +96,12 @@ final class PermissionManager {
     func requestMicrophone() async {
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         microphone = granted ? .granted : .denied
+    }
+
+    func openMicrophoneSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - Accessibility (for CGEvent tap)

@@ -10,6 +10,7 @@ private enum QuickCaptureTab: String, CaseIterable {
 
 struct QuickRecorderPopoverView: View {
     @Environment(RecordingEngine.self) private var engine
+    @Environment(PermissionManager.self) private var permissionManager
 
     let onStartRecording: () -> Void
     let onCameraVisibilityChanged: () -> Void
@@ -121,9 +122,30 @@ struct QuickRecorderPopoverView: View {
             .disabled(!engine.settings.mode.includesCamera)
 
             TogglePill(isOn: engine.settings.mode.includesCamera) {
-                engine.setCameraEnabled(!engine.settings.mode.includesCamera)
-                onCameraVisibilityChanged()
-                refreshInputDevices()
+                Task { @MainActor in
+                    if engine.settings.mode.includesCamera {
+                        engine.setCameraEnabled(false)
+                        onCameraVisibilityChanged()
+                        refreshInputDevices()
+                        return
+                    }
+
+                    permissionManager.checkCamera()
+                    if permissionManager.camera == .notDetermined {
+                        await permissionManager.requestCamera()
+                        permissionManager.checkCamera()
+                    }
+
+                    guard permissionManager.camera == .granted else {
+                        if permissionManager.camera == .denied {
+                            permissionManager.openCameraSettings()
+                        }
+                        return
+                    }
+                    engine.setCameraEnabled(true)
+                    onCameraVisibilityChanged()
+                    refreshInputDevices()
+                }
             }
             .padding(.trailing, 12)
             .zIndex(1)
@@ -160,8 +182,28 @@ struct QuickRecorderPopoverView: View {
             .disabled(!engine.settings.captureMicrophone)
 
             TogglePill(isOn: engine.settings.captureMicrophone) {
-                engine.settings.captureMicrophone.toggle()
-                engine.settings.save()
+                Task { @MainActor in
+                    if engine.settings.captureMicrophone {
+                        engine.settings.captureMicrophone = false
+                        engine.settings.save()
+                        return
+                    }
+
+                    permissionManager.checkMicrophone()
+                    if permissionManager.microphone == .notDetermined {
+                        await permissionManager.requestMicrophone()
+                        permissionManager.checkMicrophone()
+                    }
+
+                    guard permissionManager.microphone == .granted else {
+                        if permissionManager.microphone == .denied {
+                            permissionManager.openMicrophoneSettings()
+                        }
+                        return
+                    }
+                    engine.settings.captureMicrophone = true
+                    engine.settings.save()
+                }
             }
             .padding(.trailing, 12)
             .zIndex(1)

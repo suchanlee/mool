@@ -144,6 +144,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     @objc private func startRecording() {
         closeQuickRecorderPopover()
         Task {
+            guard await ensureScreenRecordingPermissionIfNeeded() else {
+                showError(ScreenCaptureError.permissionDenied)
+                return
+            }
             do {
                 try await recordingEngine.startRecording()
                 windowCoordinator.showOverlays()
@@ -201,6 +205,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             onCameraVisibilityChanged: { [weak self] in self?.windowCoordinator.refreshQuickPreviewBubble() }
         )
         .environment(recordingEngine)
+        .environment(permissionManager)
 
         quickRecorderPopover.contentViewController = NSHostingController(rootView: view)
         quickRecorderPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
@@ -221,14 +226,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     func popoverDidShow(_ notification: Notification) {
         startPopoverDismissMonitors()
+        // Show the quick preview shell immediately; camera frames can start as setup completes.
+        windowCoordinator.showQuickPreviewBubble()
         quickPreviewTask?.cancel()
         quickPreviewTask = Task { [weak self] in
             guard let self else { return }
-            await requestMissingRecordingPermissionsForQuickRecorder()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, quickRecorderPopover.isShown else { return }
             await recordingEngine.prepareQuickRecorderContext()
             guard !Task.isCancelled, quickRecorderPopover.isShown else { return }
-            windowCoordinator.showQuickPreviewBubble()
+            windowCoordinator.refreshQuickPreviewBubble()
         }
     }
 
@@ -259,25 +265,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         alert.runModal()
     }
 
-    private func requestMissingRecordingPermissionsForQuickRecorder() async {
+    private func ensureScreenRecordingPermissionIfNeeded() async -> Bool {
+        guard recordingEngine.settings.mode.includesScreen else { return true }
+
         await permissionManager.checkScreenRecording()
-        permissionManager.checkCamera()
-        permissionManager.checkMicrophone()
+        guard permissionManager.screenRecording != .granted else { return true }
 
-        if permissionManager.screenRecording != .granted {
-            permissionManager.requestScreenRecording(openSettingsOnDeny: false)
-            await permissionManager.checkScreenRecording()
-        }
-
-        if permissionManager.camera == .notDetermined {
-            await permissionManager.requestCamera()
-            permissionManager.checkCamera()
-        }
-
-        if permissionManager.microphone == .notDetermined {
-            await permissionManager.requestMicrophone()
-            permissionManager.checkMicrophone()
-        }
+        permissionManager.requestScreenRecording(openSettingsOnDeny: true)
+        await permissionManager.checkScreenRecording()
+        return permissionManager.screenRecording == .granted
     }
 
     // MARK: - Popover Dismissal Monitoring
