@@ -36,3 +36,5 @@ DerivedData/
 
 # ===== Claude Code =====
 .claude/
+
+build/
