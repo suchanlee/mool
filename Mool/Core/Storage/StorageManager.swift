@@ -60,10 +60,16 @@ final class StorageManager {
     }
 
     init() {
-        let defaultMovies = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
-            .appendingPathComponent("Movies", isDirectory: true)
-        let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? defaultMovies
-        storagePath = movies.appendingPathComponent("Mool", isDirectory: true)
+        if let overridePath = ProcessInfo.processInfo.environment["MOOL_TEST_STORAGE_PATH"],
+           !overridePath.isEmpty
+        {
+            storagePath = URL(fileURLWithPath: overridePath, isDirectory: true)
+        } else {
+            let defaultMovies = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+                .appendingPathComponent("Movies", isDirectory: true)
+            let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? defaultMovies
+            storagePath = movies.appendingPathComponent("Mool", isDirectory: true)
+        }
         ensureDirectoryExists()
         Task { await refresh() }
     }
