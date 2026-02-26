@@ -13,6 +13,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Configure Info.plist (usage descriptions, LSUIElement, login item)
 - [x] Set up Assets.xcassets with generated app icon artwork
 - [x] Add SwiftFormat + SwiftLint pre-commit hook workflow
+- [x] Add `scripts/build-dmg.sh` for manual DMG packaging (optional signing/notarization)
 
 ---
 

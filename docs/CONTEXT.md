@@ -25,6 +25,7 @@ xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' bu
 - **Always run `xcodegen generate` after adding/removing/moving Swift files.** The `.xcodeproj` is derived from `project.yml` and picks up all `.swift` files under `Mool/` automatically.
 - Xcode 26.2 / Swift 6.2.3 / macOS 26.2 SDK
 - Deployment target: **macOS 14.0** (required for `@Observable` macro)
+- DMG packaging helper: `./scripts/build-dmg.sh` (manual release step; not part of pre-commit)
 
 ---
 
@@ -37,7 +38,7 @@ mool/
 ├── .swiftformat            SwiftFormat configuration
 ├── .swiftlint.yml          SwiftLint configuration
 ├── .githooks/pre-commit    Repo-managed git pre-commit hook
-├── scripts/                Dev scripts (hook install + quality checks)
+├── scripts/                Dev scripts (hook install, quality checks, DMG packaging)
 ├── Mool.xcodeproj/         Generated — do not hand-edit
 ├── docs/
 │   ├── CONTEXT.md          ← this file

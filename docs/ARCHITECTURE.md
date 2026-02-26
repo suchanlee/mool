@@ -14,7 +14,7 @@ Mool is a local-only macOS screen recording app inspired by Loom. All recordings
 | Camera / mic | AVFoundation (AVCaptureSession) |
 | Video encoding | AVAssetWriter (H.264 video, AAC audio) |
 | Reactive state | @Observable (Observation framework) |
-| Build system | xcodegen → Xcode project |
+| Build system | xcodegen → Xcode project; `scripts/build-dmg.sh` for manual DMG packaging |
 | Minimum deployment | macOS 14.0 (required for `@Observable`) |
 
 ---

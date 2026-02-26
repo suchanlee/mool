@@ -69,6 +69,25 @@ xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' bu
 
 The built app lands in `~/Library/Developer/Xcode/DerivedData/Mool-*/Build/Products/Debug/Mool.app`.
 
+### 5. Build a DMG
+
+For a local DMG:
+
+```bash
+./scripts/build-dmg.sh
+```
+
+This builds a Release app and creates `build/Mool.dmg`.
+
+For signed + notarized DMG:
+
+```bash
+./scripts/build-dmg.sh \
+  --sign-identity "Developer ID Application: YOUR NAME (TEAMID)" \
+  --notarize \
+  --keychain-profile "AC_NOTARY"
+```
+
 ---
 
 ## First Launch — Permissions
