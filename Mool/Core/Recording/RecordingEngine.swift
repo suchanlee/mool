@@ -15,11 +15,22 @@ import SwiftUI
 final class RecordingEngine {
     // MARK: - Public state
 
-    var state: RecordingState = .idle
+    var state: RecordingState = .idle {
+        didSet {
+            guard oldValue != state else { return }
+            NotificationCenter.default.post(name: .recordingEngineStateDidChange, object: self)
+        }
+    }
+
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var currentSession: RecordingSession?
     private(set) var lastCompletedURL: URL?
-    private var runtimeErrorMessage: String?
+    private var runtimeErrorMessage: String? {
+        didSet {
+            guard runtimeErrorMessage != nil else { return }
+            NotificationCenter.default.post(name: .recordingEngineRuntimeErrorDidOccur, object: self)
+        }
+    }
 
     var settings = RecordingSettings()
     let availableSources = AvailableSources()
@@ -114,6 +125,7 @@ final class RecordingEngine {
     func stopRecording() async {
         guard state == .recording || state == .paused else { return }
         state = .finishing
+        var completedURL: URL?
 
         elapsedTimer?.invalidate()
         try? await screenManager.stopCapture()
@@ -123,6 +135,7 @@ final class RecordingEngine {
         do {
             let url = try await videoWriter?.finish()
             lastCompletedURL = url
+            completedURL = url
             currentSession?.fileURL = url
             currentSession?.duration = elapsedTime
             if let session = currentSession {
@@ -140,6 +153,9 @@ final class RecordingEngine {
         currentSession = nil
         state = .idle
         elapsedTime = 0
+        if completedURL != nil {
+            NotificationCenter.default.post(name: .recordingEngineDidCompleteRecording, object: self)
+        }
     }
 
     func consumeRuntimeErrorMessage() -> String? {
@@ -440,6 +456,12 @@ final class RecordingEngine {
         let microphones = audioManager.availableMicrophones()
         return AVCaptureDevice.default(for: .audio) ?? microphones.first
     }
+}
+
+extension Notification.Name {
+    static let recordingEngineStateDidChange = Notification.Name("Mool.RecordingEngine.StateDidChange")
+    static let recordingEngineRuntimeErrorDidOccur = Notification.Name("Mool.RecordingEngine.RuntimeErrorDidOccur")
+    static let recordingEngineDidCompleteRecording = Notification.Name("Mool.RecordingEngine.DidCompleteRecording")
 }
 
 enum RecordingEngineError: LocalizedError {

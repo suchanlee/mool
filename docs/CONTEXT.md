@@ -152,7 +152,7 @@ AppDelegate
 6. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
 7. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
 8. When recording finishes successfully and state returns to idle, `MenuBarController` auto-opens Library so the new recording is immediately visible.
-8. If capture stops unexpectedly (display/window unavailable), `RecordingEngine` stops recording and exposes a runtime error message consumed by `MenuBarController` for a user-facing alert.
+8. If capture stops unexpectedly (display/window unavailable), `RecordingEngine` stops recording and exposes a runtime error message consumed by `MenuBarController` (via engine notifications) for a user-facing alert.
 
 ---
 
@@ -253,7 +253,7 @@ All overlay windows share these properties set at creation time:
 The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-through). `AnnotationManager.isAnnotating` toggles this via the `overlayWindow` weak reference.
 
 The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
-In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD; while actively dragging the bubble, the HUD is temporarily hidden.
+In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD using scoped mouse-event monitors; while actively dragging the bubble, the HUD is temporarily hidden.
 The **CameraBubbleWindow** move behavior is handled by screen-space anchored gestures in `CameraBubbleView` that update the panel frame directly (1:1 drag feel, reduced jitter, visible-frame clamping). Bubble size is set via HUD presets (Small/Medium/Large), and the panel-level square shadow is disabled in favor of circular content shadow styling.
 
 The **CountdownOverlayWindow** is borderless, click-through, and shown on each connected display while `RecordingEngine.state` is `.countdown`.

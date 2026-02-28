@@ -170,6 +170,7 @@ struct VideoDetailView: View {
     @State private var editErrorMessage: String?
     @State private var isPlaying = false
     @State private var currentPlaybackTime: Double = 0
+    @State private var playheadTimer: Timer?
 
     private let minimumTrimSpan: Double = 0.1
     private let playbackRateOptions: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
@@ -177,8 +178,6 @@ struct VideoDetailView: View {
     private let editControlSpacing: CGFloat = 8
     private let editControlColumnWidth: CGFloat = 145
     private let editControlCornerRadius: CGFloat = 10
-    private let playheadTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
-
     private var timelineHeight: CGFloat {
         (editControlRowHeight * 3) + (editControlSpacing * 2)
     }
@@ -225,9 +224,6 @@ struct VideoDetailView: View {
         .onChange(of: editPlaybackRate) { _, _ in
             guard isEditing else { return }
             applyPlaybackRateIfPlaying()
-        }
-        .onReceive(playheadTimer) { _ in
-            updatePlaybackState()
         }
         .onDisappear {
             cleanupPlayerState()
@@ -388,6 +384,7 @@ struct VideoDetailView: View {
         synchronizeEditedRange()
         player?.pause()
         isPlaying = false
+        startPlayheadTimerIfNeeded()
 
         Task {
             await generateThumbnailsIfNeeded(force: thumbnails.isEmpty)
@@ -397,6 +394,7 @@ struct VideoDetailView: View {
     @MainActor
     private func endEditing() {
         player?.currentItem?.forwardPlaybackEndTime = .invalid
+        stopPlayheadTimer()
         editErrorMessage = nil
     }
 
@@ -486,9 +484,26 @@ struct VideoDetailView: View {
     }
 
     private func cleanupPlayerState() {
+        stopPlayheadTimer()
         player?.pause()
         player = nil
         isPlaying = false
+    }
+
+    @MainActor
+    private func startPlayheadTimerIfNeeded() {
+        guard playheadTimer == nil else { return }
+        playheadTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            Task { @MainActor in
+                updatePlaybackState()
+            }
+        }
+    }
+
+    @MainActor
+    private func stopPlayheadTimer() {
+        playheadTimer?.invalidate()
+        playheadTimer = nil
     }
 
     @MainActor
@@ -569,7 +584,7 @@ struct TrimTimelineStrip: View {
     private let trackCornerRadius: CGFloat = 10
     private let horizontalPadding: CGFloat = 20
     private let selectionStrokeWidth: CGFloat = 3
-    private let showsDebugOverlay = true
+    private let showsDebugOverlay = false
     @State private var activeHandle: TrimHandleDragMath.TargetHandle?
     @State private var startDragOrigin: Double?
     @State private var endDragOrigin: Double?

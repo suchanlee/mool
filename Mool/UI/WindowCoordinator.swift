@@ -17,8 +17,9 @@ final class WindowCoordinator {
     private var speakerNotesWindow: SpeakerNotesWindow?
     private var countdownOverlayWindows: [CountdownOverlayWindow] = []
     private var sourcePickerController: SourcePickerController?
-    private var stateObserverTimer: Timer?
-    private var lastObservedState: RecordingState = .idle
+    private var recordingStateObserver: NSObjectProtocol?
+    private var localHUDHoverMonitor: Any?
+    private var globalHUDHoverMonitor: Any?
     private var showsQuickPreviewBubble = false
     private var isDraggingCameraBubble = false
 
@@ -27,7 +28,7 @@ final class WindowCoordinator {
     init(recordingEngine: RecordingEngine) {
         self.recordingEngine = recordingEngine
         buildWindows()
-        startStateObservation()
+        startRecordingStateObservation()
     }
 
     // MARK: - Build
@@ -94,6 +95,7 @@ final class WindowCoordinator {
         }
 
         cursorTracker.startTracking()
+        configureHUDHoverMonitoring()
     }
 
     func hideOverlays() {
@@ -106,6 +108,7 @@ final class WindowCoordinator {
         hideCountdownOverlay()
         annotationManager.isAnnotating = false
         cursorTracker.stopTracking()
+        stopHUDHoverMonitoring()
     }
 
     func showQuickPreviewBubble() {
@@ -124,6 +127,7 @@ final class WindowCoordinator {
         } else {
             cameraBubbleWindow?.orderOut(nil)
         }
+        configureHUDHoverMonitoring()
     }
 
     func hideQuickPreviewBubble() {
@@ -157,36 +161,93 @@ final class WindowCoordinator {
 
         if recordingEngine.state == .recording || recordingEngine.state == .paused {
             updateBubbleAttachedHUD()
+            configureHUDHoverMonitoring()
         }
     }
 
-    private func startStateObservation() {
-        stateObserverTimer?.invalidate()
-        stateObserverTimer = Timer.scheduledTimer(
-            timeInterval: 0.1,
-            target: self,
-            selector: #selector(handleStateObservationTick),
-            userInfo: nil,
-            repeats: true
-        )
+    private func startRecordingStateObservation() {
+        stopRecordingStateObservation()
+        recordingStateObserver = NotificationCenter.default.addObserver(
+            forName: .recordingEngineStateDidChange,
+            object: recordingEngine,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleRecordingStateChange()
+            }
+        }
+        handleRecordingStateChange()
     }
 
-    @objc private func handleStateObservationTick() {
+    private func stopRecordingStateObservation() {
+        if let observer = recordingStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+            recordingStateObserver = nil
+        }
+    }
+
+    private func handleRecordingStateChange() {
         let state = recordingEngine.state
 
-        if state == .idle, lastObservedState != .idle {
+        if state == .idle {
             hideOverlays()
         }
-        lastObservedState = state
-
         refreshQuickPreviewBubble()
         updateBubbleAttachedHUD()
+        configureHUDHoverMonitoring()
 
         switch state {
         case let .countdown(seconds):
             showCountdownOverlay(secondsRemaining: seconds)
         default:
             hideCountdownOverlay()
+        }
+    }
+
+    private func configureHUDHoverMonitoring() {
+        let state = recordingEngine.state
+        let shouldMonitor = (state == .recording || state == .paused) &&
+            recordingEngine.settings.mode.includesCamera &&
+            !isDraggingCameraBubble
+        if shouldMonitor {
+            startHUDHoverMonitoring()
+        } else {
+            stopHUDHoverMonitoring()
+        }
+    }
+
+    private func startHUDHoverMonitoring() {
+        guard localHUDHoverMonitor == nil, globalHUDHoverMonitor == nil else { return }
+
+        let events: NSEvent.EventTypeMask = [
+            .mouseMoved,
+            .leftMouseDragged,
+            .rightMouseDragged,
+            .otherMouseDragged,
+            .leftMouseDown,
+            .rightMouseDown
+        ]
+
+        localHUDHoverMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { [weak self] event in
+            self?.updateBubbleAttachedHUD()
+            return event
+        }
+
+        globalHUDHoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: events) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateBubbleAttachedHUD()
+            }
+        }
+    }
+
+    private func stopHUDHoverMonitoring() {
+        if let monitor = localHUDHoverMonitor {
+            NSEvent.removeMonitor(monitor)
+            localHUDHoverMonitor = nil
+        }
+        if let monitor = globalHUDHoverMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalHUDHoverMonitor = nil
         }
     }
 

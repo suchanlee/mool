@@ -132,6 +132,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Graceful handling of permission denial (PermissionsView guides user to System Settings)
 - [x] Switch to demand-driven permission prompts: camera/mic prompt on toggle-on, screen prompt on recording start
 - [x] Show quick preview bubble immediately on popover open while permission/source setup finishes
+- [x] Remove always-on idle polling in menu bar/window coordination (notification-driven updates + scoped hover monitors)
 - [x] Handle display sleep / disconnect during recording (auto-stop + user-facing alert)
 - [x] On failed recording start, fully rollback capture state (camera/audio/writer), hide overlays, and return to idle
 - [x] Remove global keyboard shortcuts and shortcut settings UI

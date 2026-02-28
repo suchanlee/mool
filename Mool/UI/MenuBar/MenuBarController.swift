@@ -9,9 +9,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private var statusBarMenu: NSMenu?
     private let quickRecorderPopover = NSPopover()
-    private var stateObserverTimer: Timer?
     private var quickPreviewTask: Task<Void, Never>?
-    private var lastHandledCompletedRecordingURL: URL?
+    private var engineStateObserver: NSObjectProtocol?
+    private var engineRuntimeErrorObserver: NSObjectProtocol?
+    private var engineCompletedObserver: NSObjectProtocol?
     private var localPopoverClickMonitor: Any?
     private var globalPopoverClickMonitor: Any?
     private var localPopoverKeyMonitor: Any?
@@ -32,7 +33,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         self.permissionManager = permissionManager
         super.init()
         setupStatusItem()
-        observeRecordingState()
+        observeRecordingEngine()
+        updateMenuState()
+        updateStatusIcon()
     }
 
     // MARK: - Setup
@@ -86,16 +89,57 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         statusBarMenu = menu
     }
 
-    // MARK: - State observation
+    // MARK: - Recording Engine Observation
 
-    private func observeRecordingState() {
-        stateObserverTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+    private func observeRecordingEngine() {
+        stopObservingRecordingEngine()
+
+        let center = NotificationCenter.default
+        engineStateObserver = center.addObserver(
+            forName: .recordingEngineStateDidChange,
+            object: recordingEngine,
+            queue: .main
+        ) { [weak self] _ in
             Task { @MainActor in
-                self?.updateMenuState()
-                self?.updateStatusIcon()
+                guard let self else { return }
+                self.updateMenuState()
+                self.updateStatusIcon()
+            }
+        }
+
+        engineRuntimeErrorObserver = center.addObserver(
+            forName: .recordingEngineRuntimeErrorDidOccur,
+            object: recordingEngine,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
                 self?.showPendingRuntimeErrorIfNeeded()
+            }
+        }
+
+        engineCompletedObserver = center.addObserver(
+            forName: .recordingEngineDidCompleteRecording,
+            object: recordingEngine,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
                 self?.openLibraryForCompletedRecordingIfNeeded()
             }
+        }
+    }
+
+    private func stopObservingRecordingEngine() {
+        if let observer = engineStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+            engineStateObserver = nil
+        }
+        if let observer = engineRuntimeErrorObserver {
+            NotificationCenter.default.removeObserver(observer)
+            engineRuntimeErrorObserver = nil
+        }
+        if let observer = engineCompletedObserver {
+            NotificationCenter.default.removeObserver(observer)
+            engineCompletedObserver = nil
         }
     }
 
@@ -249,11 +293,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     private func openLibraryForCompletedRecordingIfNeeded() {
-        guard recordingEngine.state == .idle else { return }
-        guard let completedURL = recordingEngine.lastCompletedURL else { return }
-        guard completedURL != lastHandledCompletedRecordingURL else { return }
-
-        lastHandledCompletedRecordingURL = completedURL
+        guard recordingEngine.lastCompletedURL != nil else { return }
         openLibrary()
     }
 

@@ -149,7 +149,7 @@ Countdown behavior:
 Disconnect behavior:
 - `ScreenCaptureManagerDidStop` triggers `RecordingEngine.stopRecording()`.
 - `RecordingEngine` stores a runtime error message.
-- `MenuBarController` polls and shows an `NSAlert` to explain the stop reason.
+- `MenuBarController` observes recording-engine notifications and shows an `NSAlert` for the stop reason.
 ```
 
 ### Compositing Strategy
@@ -171,7 +171,7 @@ All overlay windows share these properties:
 
 | Window | Type | Interaction |
 |---|---|---|
-| ControlPanelWindow | NSPanel, `.nonactivatingPanel` | In camera mode, anchored below camera bubble and shown only while hovering bubble/HUD; hidden while actively dragging bubble; otherwise shown as standalone HUD |
+| ControlPanelWindow | NSPanel, `.nonactivatingPanel` | In camera mode, anchored below camera bubble and shown only while hovering bubble/HUD via scoped mouse-event monitors; hidden while actively dragging bubble; otherwise shown as standalone HUD |
 | CameraBubbleWindow | NSPanel, borderless | Draggable via explicit SwiftUI gesture updates; size is controlled by HUD presets (Small/Medium/Large); uses circular-only shadow (no square panel shadow artifact) |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |
@@ -248,7 +248,7 @@ All state is published via `@Observable` so SwiftUI views and overlay panels upd
 
 4. **SwiftUI inside NSPanel** — Overlay panels host `NSHostingView<SomeSwiftUIView>` as their content view, combining AppKit window management with SwiftUI's reactive UI.
 
-5. **Observation-first state** — `RecordingEngine` and settings are `@Observable`; AppKit controllers poll/update UI state with timers where direct SwiftUI observation is not available (menu bar and overlay windows).
+5. **Observation-first state** — `RecordingEngine` and settings are `@Observable`; AppKit controllers react to explicit state-change notifications and short-lived event monitors rather than always-on polling timers.
 
 6. **Local only** — No networking stack, no auth, no telemetry. All data stays in `~/Movies/Mool/`.
 
