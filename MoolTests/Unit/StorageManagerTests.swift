@@ -1,9 +1,8 @@
-import XCTest
 @testable import Mool
+import XCTest
 
 @MainActor
 final class StorageManagerTests: XCTestCase {
-
     var storageManager: StorageManager!
     var tempDir: URL!
 
@@ -55,6 +54,15 @@ final class StorageManagerTests: XCTestCase {
         XCTAssertEqual(url1.deletingLastPathComponent(), url2.deletingLastPathComponent())
     }
 
+    func testNewRecordingURL_whenExistingFilePresent_returnsDifferentPath() throws {
+        let existingURL = storageManager.newRecordingURL()
+        try Data().write(to: existingURL)
+
+        let nextURL = storageManager.newRecordingURL()
+        XCTAssertNotEqual(nextURL, existingURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: nextURL.path))
+    }
+
     // MARK: - refresh
 
     func testRefresh_emptyDirectory_recordingsIsEmpty() async {
@@ -86,7 +94,7 @@ final class StorageManagerTests: XCTestCase {
     func testRefresh_multipleVideoFiles_allCounted() async throws {
         try Data().write(to: tempDir.appendingPathComponent("a.mov"))
         try Data().write(to: tempDir.appendingPathComponent("b.mp4"))
-        try Data().write(to: tempDir.appendingPathComponent("c.png"))  // ignored
+        try Data().write(to: tempDir.appendingPathComponent("c.png")) // ignored
         await storageManager.refresh()
         XCTAssertEqual(storageManager.recordings.count, 2)
     }

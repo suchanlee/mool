@@ -252,8 +252,8 @@ final class StorageManager {
     func newRecordingURL() -> URL {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let name = "Mool_\(formatter.string(from: .now)).mov"
-        return storagePath.appendingPathComponent(name)
+        let baseName = "Mool_\(formatter.string(from: .now))"
+        return uniqueRecordingURL(baseName: baseName, fileExtension: "mov")
     }
 
     var formattedTotalSize: String {
@@ -318,6 +318,20 @@ final class StorageManager {
     private func speedLabel(for playbackRate: Double) -> String {
         let formatted = playbackRate.formatted(.number.precision(.fractionLength(0 ... 2)))
         return formatted.replacingOccurrences(of: ".", with: "_") + "x"
+    }
+
+    private func uniqueRecordingURL(baseName: String, fileExtension: String) -> URL {
+        var attempt = 0
+        while true {
+            let suffix = attempt == 0 ? "" : "_\(attempt)"
+            let candidate = storagePath
+                .appendingPathComponent(baseName + suffix)
+                .appendingPathExtension(fileExtension)
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            attempt += 1
+        }
     }
 }
 
