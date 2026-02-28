@@ -11,10 +11,12 @@ final class SourcePickerController {
     private var window: NSWindow?
     private unowned let engine: RecordingEngine
     private unowned let coordinator: WindowCoordinator
+    private unowned let permissionManager: PermissionManager
 
-    init(engine: RecordingEngine, coordinator: WindowCoordinator) {
+    init(engine: RecordingEngine, coordinator: WindowCoordinator, permissionManager: PermissionManager) {
         self.engine = engine
         self.coordinator = coordinator
+        self.permissionManager = permissionManager
     }
 
     func show() {
@@ -55,6 +57,11 @@ final class SourcePickerController {
     private func startRecording() {
         dismiss()
         Task {
+            guard await ensureScreenRecordingPermissionIfNeeded() else {
+                showError(ScreenCaptureError.permissionDenied)
+                return
+            }
+
             do {
                 try await engine.startRecording()
                 coordinator.showOverlays()
@@ -77,5 +84,10 @@ final class SourcePickerController {
         alert.informativeText = error.localizedDescription
         alert.alertStyle = .critical
         alert.runModal()
+    }
+
+    private func ensureScreenRecordingPermissionIfNeeded() async -> Bool {
+        guard engine.settings.mode.includesScreen else { return true }
+        return await permissionManager.ensureScreenRecordingPermission(openSettingsOnDeny: true)
     }
 }

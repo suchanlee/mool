@@ -62,6 +62,16 @@ final class PermissionManager {
         }
     }
 
+    func ensureScreenRecordingPermission(openSettingsOnDeny: Bool = true) async -> Bool {
+        await checkScreenRecording()
+        guard screenRecording == .granted else {
+            requestScreenRecording(openSettingsOnDeny: openSettingsOnDeny)
+            await checkScreenRecording()
+            return screenRecording == .granted
+        }
+        return true
+    }
+
     // MARK: - Camera
 
     func checkCamera() {

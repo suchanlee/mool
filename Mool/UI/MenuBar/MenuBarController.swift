@@ -307,13 +307,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func ensureScreenRecordingPermissionIfNeeded() async -> Bool {
         guard recordingEngine.settings.mode.includesScreen else { return true }
-
-        await permissionManager.checkScreenRecording()
-        guard permissionManager.screenRecording != .granted else { return true }
-
-        permissionManager.requestScreenRecording(openSettingsOnDeny: true)
-        await permissionManager.checkScreenRecording()
-        return permissionManager.screenRecording == .granted
+        return await permissionManager.ensureScreenRecordingPermission(openSettingsOnDeny: true)
     }
 
     // MARK: - Popover Dismissal Monitoring

@@ -30,7 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         // Build overlays first, then the menu bar
-        let coordinator = WindowCoordinator(recordingEngine: recordingEngine)
+        let coordinator = WindowCoordinator(
+            recordingEngine: recordingEngine,
+            permissionManager: permissionManager
+        )
         windowCoordinator = coordinator
 
         menuBarController = MenuBarController(

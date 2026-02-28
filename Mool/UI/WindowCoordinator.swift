@@ -7,6 +7,7 @@ import AppKit
 @MainActor
 final class WindowCoordinator {
     private unowned let recordingEngine: RecordingEngine
+    private unowned let permissionManager: PermissionManager
 
     let annotationManager = AnnotationManager()
     private let cursorTracker = CursorTracker()
@@ -25,8 +26,9 @@ final class WindowCoordinator {
 
     // MARK: - Init
 
-    init(recordingEngine: RecordingEngine) {
+    init(recordingEngine: RecordingEngine, permissionManager: PermissionManager) {
         self.recordingEngine = recordingEngine
+        self.permissionManager = permissionManager
         buildWindows()
         startRecordingStateObservation()
     }
@@ -71,7 +73,11 @@ final class WindowCoordinator {
         annotationOverlayWindow = overlayWin
 
         speakerNotesWindow = SpeakerNotesWindow()
-        sourcePickerController = SourcePickerController(engine: recordingEngine, coordinator: self)
+        sourcePickerController = SourcePickerController(
+            engine: recordingEngine,
+            coordinator: self,
+            permissionManager: permissionManager
+        )
     }
 
     // MARK: - Source Picker
