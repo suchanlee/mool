@@ -52,6 +52,21 @@ struct SourcePickerView: View {
                 engine.settings.selectedWindowID = nil
             }
         }
+        .onChange(of: engine.settings.mode) { _, _ in
+            engine.settings.save()
+        }
+        .onChange(of: engine.settings.quality) { _, _ in
+            engine.settings.save()
+        }
+        .onChange(of: engine.settings.countdownDuration) { _, _ in
+            engine.settings.save()
+        }
+        .onChange(of: engine.settings.captureMicrophone) { _, _ in
+            engine.settings.save()
+        }
+        .onChange(of: engine.settings.captureSystemAudio) { _, _ in
+            engine.settings.save()
+        }
     }
 
     // MARK: - Header
