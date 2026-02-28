@@ -29,6 +29,7 @@ struct QuickRecorderPopoverView: View {
         }
         .padding(12)
         .frame(width: 332)
+        .disabled(engine.state != .idle)
         .task {
             captureTab = engine.settings.selectedWindowID == nil ? .display : .window
             refreshInputDevices()
@@ -130,18 +131,7 @@ struct QuickRecorderPopoverView: View {
                         return
                     }
 
-                    permissionManager.checkCamera()
-                    if permissionManager.camera == .notDetermined {
-                        await permissionManager.requestCamera()
-                        permissionManager.checkCamera()
-                    }
-
-                    guard permissionManager.camera == .granted else {
-                        if permissionManager.camera == .denied {
-                            permissionManager.openCameraSettings()
-                        }
-                        return
-                    }
+                    guard await permissionManager.ensureCameraPermission(openSettingsOnDeny: true) else { return }
                     engine.setCameraEnabled(true)
                     onCameraVisibilityChanged()
                     refreshInputDevices()
@@ -189,18 +179,7 @@ struct QuickRecorderPopoverView: View {
                         return
                     }
 
-                    permissionManager.checkMicrophone()
-                    if permissionManager.microphone == .notDetermined {
-                        await permissionManager.requestMicrophone()
-                        permissionManager.checkMicrophone()
-                    }
-
-                    guard permissionManager.microphone == .granted else {
-                        if permissionManager.microphone == .denied {
-                            permissionManager.openMicrophoneSettings()
-                        }
-                        return
-                    }
+                    guard await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true) else { return }
                     engine.settings.captureMicrophone = true
                     engine.settings.save()
                 }

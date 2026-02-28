@@ -77,6 +77,18 @@ final class PermissionManager {
         camera = granted ? .granted : .denied
     }
 
+    func ensureCameraPermission(openSettingsOnDeny: Bool = false) async -> Bool {
+        checkCamera()
+        if camera == .notDetermined {
+            await requestCamera()
+            checkCamera()
+        }
+        if camera == .denied, openSettingsOnDeny {
+            openCameraSettings()
+        }
+        return camera == .granted
+    }
+
     func openCameraSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
             NSWorkspace.shared.open(url)
@@ -96,6 +108,18 @@ final class PermissionManager {
     func requestMicrophone() async {
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         microphone = granted ? .granted : .denied
+    }
+
+    func ensureMicrophonePermission(openSettingsOnDeny: Bool = false) async -> Bool {
+        checkMicrophone()
+        if microphone == .notDetermined {
+            await requestMicrophone()
+            checkMicrophone()
+        }
+        if microphone == .denied, openSettingsOnDeny {
+            openMicrophoneSettings()
+        }
+        return microphone == .granted
     }
 
     func openMicrophoneSettings() {
