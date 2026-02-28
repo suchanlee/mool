@@ -42,9 +42,15 @@ struct SourcePickerView: View {
         }
         .frame(width: 540, height: 540)
         .task {
+            sourceTab = engine.settings.selectedWindowID == nil ? .display : .window
             isLoadingSources = true
             await engine.availableSources.refresh()
             isLoadingSources = false
+        }
+        .onChange(of: sourceTab) { _, newValue in
+            if newValue == .display {
+                engine.settings.selectedWindowID = nil
+            }
         }
     }
 
@@ -126,7 +132,10 @@ struct SourcePickerView: View {
                 DisplayTile(
                     display: display,
                     isSelected: engine.settings.selectedDisplayIndex == idx,
-                    action: { engine.settings.selectedDisplayIndex = idx }
+                    action: {
+                        engine.settings.selectedDisplayIndex = idx
+                        engine.settings.selectedWindowID = nil
+                    }
                 )
             }
         }
@@ -202,7 +211,7 @@ struct SourcePickerView: View {
                         ? "No countdown"
                         : "\(engine.settings.countdownDuration)s countdown",
                     value: $engine.settings.countdownDuration,
-                    in: 0...10
+                    in: 0 ... 10
                 )
                 .fixedSize()
             }
@@ -219,7 +228,8 @@ struct SourcePickerView: View {
             .buttonStyle(.borderedProminent)
             .tint(.red)
             .keyboardShortcut(.return, modifiers: [])
-            .disabled(engine.settings.mode.includesScreen && engine.availableSources.displays.isEmpty && engine.settings.selectedWindowID == nil)
+            .disabled(engine.settings.mode.includesScreen && engine.availableSources.displays.isEmpty && engine.settings
+                .selectedWindowID == nil)
             .accessibilityIdentifier("sourcePicker.record")
         }
     }
@@ -310,7 +320,7 @@ struct DisplayTile: View {
     let isSelected: Bool
     let action: () -> Void
 
-    // Extracted to help the type-checker
+    /// Extracted to help the type-checker
     private var previewBox: some View {
         let fillColor: Color = isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)
         let strokeColor: Color = isSelected ? Color.accentColor : Color.secondary.opacity(0.2)
