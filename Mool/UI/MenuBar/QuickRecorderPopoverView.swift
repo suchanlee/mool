@@ -142,7 +142,7 @@ struct QuickRecorderPopoverView: View {
                         return
                     }
 
-                    let granted = await permissionManager.ensureCameraPermission(openSettingsOnDeny: true)
+                    let granted = await permissionManager.ensureCameraPermission(openSettingsOnDeny: false)
                     guard granted else {
                         pendingCameraEnableAfterPermission = true
                         return
@@ -196,7 +196,7 @@ struct QuickRecorderPopoverView: View {
                         return
                     }
 
-                    let granted = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true)
+                    let granted = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: false)
                     guard granted else {
                         pendingMicrophoneEnableAfterPermission = true
                         return

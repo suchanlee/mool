@@ -45,7 +45,12 @@ struct PermissionsView: View {
                     status: permissionManager.camera,
                     action: {
                         Task {
-                            _ = await permissionManager.ensureCameraPermission(openSettingsOnDeny: true)
+                            permissionManager.checkCamera()
+                            if permissionManager.camera == .denied {
+                                permissionManager.openCameraSettings()
+                            } else {
+                                _ = await permissionManager.ensureCameraPermission(openSettingsOnDeny: true)
+                            }
                         }
                     }
                 )
@@ -57,7 +62,12 @@ struct PermissionsView: View {
                     status: permissionManager.microphone,
                     action: {
                         Task {
-                            _ = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true)
+                            permissionManager.checkMicrophone()
+                            if permissionManager.microphone == .denied {
+                                permissionManager.openMicrophoneSettings()
+                            } else {
+                                _ = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true)
+                            }
                         }
                     }
                 )

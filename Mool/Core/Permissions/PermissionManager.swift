@@ -89,12 +89,13 @@ final class PermissionManager {
 
     func ensureCameraPermission(openSettingsOnDeny: Bool = false) async -> Bool {
         checkCamera()
-        if camera == .notDetermined {
+        let initialStatus = camera
+        if initialStatus == .notDetermined {
             await requestCamera()
             checkCamera()
-        }
-        if camera == .denied, openSettingsOnDeny {
-            openCameraSettings()
+            if camera == .denied, openSettingsOnDeny {
+                openCameraSettings()
+            }
         }
         return camera == .granted
     }
@@ -122,12 +123,13 @@ final class PermissionManager {
 
     func ensureMicrophonePermission(openSettingsOnDeny: Bool = false) async -> Bool {
         checkMicrophone()
-        if microphone == .notDetermined {
+        let initialStatus = microphone
+        if initialStatus == .notDetermined {
             await requestMicrophone()
             checkMicrophone()
-        }
-        if microphone == .denied, openSettingsOnDeny {
-            openMicrophoneSettings()
+            if microphone == .denied, openSettingsOnDeny {
+                openMicrophoneSettings()
+            }
         }
         return microphone == .granted
     }
