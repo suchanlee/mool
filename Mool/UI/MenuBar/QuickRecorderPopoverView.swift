@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import CoreGraphics
 import ScreenCaptureKit
@@ -18,6 +19,8 @@ struct QuickRecorderPopoverView: View {
     @State private var captureTab: QuickCaptureTab = .display
     @State private var cameras: [AVCaptureDevice] = []
     @State private var microphones: [AVCaptureDevice] = []
+    @State private var pendingCameraEnableAfterPermission = false
+    @State private var pendingMicrophoneEnableAfterPermission = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -33,6 +36,13 @@ struct QuickRecorderPopoverView: View {
         .task {
             captureTab = engine.settings.selectedWindowID == nil ? .display : .window
             refreshInputDevices()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { @MainActor in
+                await permissionManager.checkAllPermissions()
+                await applyPendingPermissionTogglesIfNeeded()
+                refreshInputDevices()
+            }
         }
     }
 
@@ -125,13 +135,19 @@ struct QuickRecorderPopoverView: View {
             TogglePill(isOn: engine.settings.mode.includesCamera) {
                 Task { @MainActor in
                     if engine.settings.mode.includesCamera {
+                        pendingCameraEnableAfterPermission = false
                         engine.setCameraEnabled(false)
                         onCameraVisibilityChanged()
                         refreshInputDevices()
                         return
                     }
 
-                    guard await permissionManager.ensureCameraPermission(openSettingsOnDeny: true) else { return }
+                    let granted = await permissionManager.ensureCameraPermission(openSettingsOnDeny: true)
+                    guard granted else {
+                        pendingCameraEnableAfterPermission = true
+                        return
+                    }
+                    pendingCameraEnableAfterPermission = false
                     engine.setCameraEnabled(true)
                     onCameraVisibilityChanged()
                     refreshInputDevices()
@@ -174,12 +190,18 @@ struct QuickRecorderPopoverView: View {
             TogglePill(isOn: engine.settings.captureMicrophone) {
                 Task { @MainActor in
                     if engine.settings.captureMicrophone {
+                        pendingMicrophoneEnableAfterPermission = false
                         engine.settings.captureMicrophone = false
                         engine.settings.save()
                         return
                     }
 
-                    guard await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true) else { return }
+                    let granted = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true)
+                    guard granted else {
+                        pendingMicrophoneEnableAfterPermission = true
+                        return
+                    }
+                    pendingMicrophoneEnableAfterPermission = false
                     engine.settings.captureMicrophone = true
                     engine.settings.save()
                 }
@@ -298,6 +320,24 @@ struct QuickRecorderPopoverView: View {
     private func refreshInputDevices() {
         cameras = engine.availableCameraDevices()
         microphones = engine.availableMicrophoneDevices()
+    }
+
+    private func applyPendingPermissionTogglesIfNeeded() async {
+        if pendingCameraEnableAfterPermission,
+           await permissionManager.ensureCameraPermission(openSettingsOnDeny: false)
+        {
+            pendingCameraEnableAfterPermission = false
+            engine.setCameraEnabled(true)
+            onCameraVisibilityChanged()
+        }
+
+        if pendingMicrophoneEnableAfterPermission,
+           await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: false)
+        {
+            pendingMicrophoneEnableAfterPermission = false
+            engine.settings.captureMicrophone = true
+            engine.settings.save()
+        }
     }
 }
 
