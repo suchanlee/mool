@@ -134,6 +134,7 @@ User clicks menu bar status item
               (screen/window content rect with the same 2x scaling)
               Receives screen video → adapts to AVAssetWriter input
               In screen mode, avoids extra camera compositing so only the on-screen camera bubble is captured
+              In camera-only mode, camera frames start and drive the writer timeline directly
               Receives audio → writes AAC track
               On stop → finishes writing → emits file URL
 
@@ -206,7 +207,7 @@ All overlay windows share these properties:
 
 Recordings are saved to `~/Movies/Mool/` by default (user-configurable).
 
-File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
+File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov` (auto-suffixed with `_1`, `_2`, ... if needed)
 
 `StorageManager` provides:
 - Enumeration of saved recordings (sorted by date)

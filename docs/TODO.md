@@ -139,6 +139,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Refresh app icon artwork (abstract water droplet) across all required macOS AppIcon sizes
 - [x] Add flip camera support (quick recorder toggle + live mirror apply to preview and camera-only output)
 - [x] Recording file auto-named with timestamp
+- [x] Start camera-only recordings from camera frames so AVAssetWriter session always begins correctly
+- [x] Prevent recording filename collisions with deterministic suffixing (`_1`, `_2`, ...)
+- [x] Keep source picker display/window intent synchronized and persist mode/quality/audio/countdown changes
+- [x] Fix cursor tracker event-tap callback ownership to avoid leaking `CGEvent` objects
 - [x] Fix trim sheet slider crash (`max stride must be positive`) by seeding valid ranges before first render
 
 ---

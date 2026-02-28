@@ -236,7 +236,7 @@ Note: use the raw string `"AXTrustedCheckOptionPrompt"` — using the `kAXTruste
 ## File Output
 
 - Default location: `~/Movies/Mool/`
-- Naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov`
+- Naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov` (auto-suffixed with `_1`, `_2`, ... on collisions)
 - Format: QuickTime `.mov`, H.264 video, AAC audio
 - Camera PiP: composited in software via CoreImage at write time (bottom-right, 22% of screen width, circular-ish crop)
 - Bitrates: 720p=5Mbps, 1080p=10Mbps, 4K=40Mbps
@@ -264,6 +264,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
 
 ### What's done (everything builds)
 - Full recording pipeline: screen (SCStream), camera (AVCaptureSession), mic (AVCaptureSession), system audio (SCStream), composited output (AVAssetWriter)
+  - Camera-only recordings write camera frames directly into `VideoWriter` to start and drive the session timeline.
 - True pause/resume (SCStream stop + restart, PTS correction in VideoWriter)
 - All overlay windows (control panel HUD, camera bubble, annotation canvas, speaker notes)
 - Annotation tools: pen, eraser, highlighter, cursor highlight ring, click burst, spotlight
