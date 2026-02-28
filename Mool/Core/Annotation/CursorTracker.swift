@@ -1,11 +1,11 @@
 import AppKit
-import CoreGraphics
 import Combine
+import CoreGraphics
 
 // MARK: - Cursor Event
 
 struct CursorEvent {
-    var position: CGPoint       // in screen coordinates
+    var position: CGPoint // in screen coordinates
     var isClick: Bool
     var isRightClick: Bool
 }
@@ -16,15 +16,14 @@ struct CursorEvent {
 /// Requires Accessibility permission (does NOT block events).
 @MainActor
 final class CursorTracker {
-
-    // Published events — subscribe to update cursor effects
+    /// Published events — subscribe to update cursor effects
     let eventPublisher = PassthroughSubject<CursorEvent, Never>()
 
-    nonisolated(unsafe) private var eventTap: CFMachPort?
+    private nonisolated(unsafe) var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private(set) var isActive: Bool = false
 
-    // Retain self reference so the C callback can bridge back
+    /// Retain self reference so the C callback can bridge back
     private var selfPtr: UnsafeMutableRawPointer?
 
     // MARK: - Start / Stop
@@ -47,7 +46,7 @@ final class CursorTracker {
             options: .listenOnly,
             eventsOfInterest: mask,
             callback: { _, type, event, userInfo -> Unmanaged<CGEvent>? in
-                guard let ptr = userInfo else { return Unmanaged.passRetained(event) }
+                guard let ptr = userInfo else { return Unmanaged.passUnretained(event) }
                 let tracker = Unmanaged<CursorTracker>.fromOpaque(ptr).takeUnretainedValue()
                 let pos = event.location
                 let isClick = type == .leftMouseDown
@@ -59,7 +58,7 @@ final class CursorTracker {
                         isRightClick: isRight
                     ))
                 }
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             },
             userInfo: selfPtr
         )
@@ -73,8 +72,8 @@ final class CursorTracker {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        self.eventTap = tap
-        self.runLoopSource = source
+        eventTap = tap
+        runLoopSource = source
         isActive = true
     }
 
