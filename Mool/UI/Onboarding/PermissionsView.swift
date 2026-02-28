@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Permissions Onboarding View
@@ -42,7 +43,11 @@ struct PermissionsView: View {
                     title: "Camera",
                     description: "Required for webcam overlay.",
                     status: permissionManager.camera,
-                    action: { Task { await permissionManager.requestCamera() } }
+                    action: {
+                        Task {
+                            _ = await permissionManager.ensureCameraPermission(openSettingsOnDeny: true)
+                        }
+                    }
                 )
 
                 PermissionRow(
@@ -50,7 +55,11 @@ struct PermissionsView: View {
                     title: "Microphone",
                     description: "Required to record audio narration.",
                     status: permissionManager.microphone,
-                    action: { Task { await permissionManager.requestMicrophone() } }
+                    action: {
+                        Task {
+                            _ = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true)
+                        }
+                    }
                 )
 
                 PermissionRow(
@@ -89,6 +98,11 @@ struct PermissionsView: View {
         .frame(width: 500, height: 560)
         .task {
             await permissionManager.checkAllPermissions()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task {
+                await permissionManager.checkAllPermissions()
+            }
         }
     }
 }
