@@ -138,13 +138,13 @@ AppDelegate
    - Right click: `MenuBarController` opens context menu with actions.
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
-   - Validates required permissions:
-     - Screen Recording permission is requested at recording start for screen-including modes.
+   - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)
+   - Preflights AV permissions before countdown:
      - Camera permission is requested when camera capture is enabled.
      - Microphone permission is requested when microphone capture is enabled.
-   - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
+     - Requests Screen Recording permission for screen-including modes
      - Creates `VideoWriter` with source dimensions aligned to `SCStream` resolution (`contentRect * 2`) → calls `writer.setup()`
      - Configures + starts `ScreenCaptureManager` (display or window)
      - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
