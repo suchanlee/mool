@@ -73,6 +73,10 @@ final class RecordingEngine {
             // Refresh available sources
             await availableSources.refresh()
 
+            // Prompt for AV permissions before countdown so start timing is predictable.
+            try await ensureCameraPermissionIfNeeded()
+            try await ensureMicrophonePermissionIfNeeded()
+
             if settings.countdownDuration > 0 {
                 await runCountdown()
             }
@@ -301,9 +305,6 @@ final class RecordingEngine {
                 throw RecordingEngineError.noAvailableScreenSource
             }
         }
-
-        try await ensureCameraPermissionIfNeeded()
-        try await ensureMicrophonePermissionIfNeeded()
 
         let outputURL = storageManager.newRecordingURL()
         var session = RecordingSession()
