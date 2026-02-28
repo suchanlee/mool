@@ -110,13 +110,17 @@ User clicks menu bar status item
       │               open => show CameraBubbleWindow shell immediately, then
       │                       prepareQuickRecorderContext() + refresh quick preview bubble
       │               toggle camera/mic ON => request corresponding permission on demand
-      │               start recording => request Screen Recording permission if needed
+      │               controls are disabled while recording/paused to avoid mid-session setting drift
       │               interaction => outside-click monitor keeps bubble interactions active
       │               close => teardownQuickRecorderContext() + hide quick preview bubble
       └─ Right click → context menu
                  │
                  ▼
         RecordingEngine.startRecording()
+      │
+      ├─ Preflight selected permissions
+      │       Screen Recording requested for screen modes
+      │       Camera/Microphone requested when those tracks are enabled
       │
       ├─ ScreenCaptureManager.startStream()
       │       SCStream → CMSampleBuffer (video frames)

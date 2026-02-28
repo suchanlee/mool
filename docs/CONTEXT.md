@@ -131,13 +131,17 @@ AppDelegate
      - On popover open, `MenuBarController` shows the quick preview bubble shell immediately.
      - It prepares quick-recorder context and refreshes `CameraBubbleWindow` once ready.
      - Camera/microphone permissions are requested only when their toggles are turned ON.
+     - Quick-recorder controls are disabled while recording/paused to avoid mutating next-session settings mid-capture.
      - Popover behavior is app-defined so interacting with the camera bubble (move) does not auto-dismiss it.
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.
      - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
-   - Validates required permissions (screen permission is requested at recording start for screen-including modes)
+   - Validates required permissions:
+     - Screen Recording permission is requested at recording start for screen-including modes.
+     - Camera permission is requested when camera capture is enabled.
+     - Microphone permission is requested when microphone capture is enabled.
    - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:

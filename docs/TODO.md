@@ -144,6 +144,9 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Keep source picker display/window intent synchronized and persist mode/quality/audio/countdown changes
 - [x] Fix cursor tracker event-tap callback ownership to avoid leaking `CGEvent` objects
 - [x] Fix trim sheet slider crash (`max stride must be positive`) by seeding valid ranges before first render
+- [x] Enforce camera/microphone permission preflight at recording start (covers source picker + quick recorder entry paths)
+- [x] Reuse shared AV permission helpers in quick recorder and disable quick controls during active recording states
+- [x] Fix onboarding camera/microphone denied flow to open System Settings and refresh status on app re-activation
 
 ---
 
