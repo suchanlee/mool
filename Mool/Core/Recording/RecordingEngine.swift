@@ -302,6 +302,9 @@ final class RecordingEngine {
             }
         }
 
+        try await ensureCameraPermissionIfNeeded()
+        try await ensureMicrophonePermissionIfNeeded()
+
         let outputURL = storageManager.newRecordingURL()
         var session = RecordingSession()
         session.fileURL = outputURL
@@ -456,6 +459,34 @@ final class RecordingEngine {
         let microphones = audioManager.availableMicrophones()
         return AVCaptureDevice.default(for: .audio) ?? microphones.first
     }
+
+    private func ensureCameraPermissionIfNeeded() async throws {
+        guard settings.mode.includesCamera else { return }
+
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            return
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            guard granted else { throw RecordingEngineError.cameraPermissionDenied }
+        default:
+            throw RecordingEngineError.cameraPermissionDenied
+        }
+    }
+
+    private func ensureMicrophonePermissionIfNeeded() async throws {
+        guard settings.captureMicrophone else { return }
+
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            return
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .audio)
+            guard granted else { throw RecordingEngineError.microphonePermissionDenied }
+        default:
+            throw RecordingEngineError.microphonePermissionDenied
+        }
+    }
 }
 
 extension Notification.Name {
@@ -466,11 +497,17 @@ extension Notification.Name {
 
 enum RecordingEngineError: LocalizedError {
     case noAvailableScreenSource
+    case cameraPermissionDenied
+    case microphonePermissionDenied
 
     var errorDescription: String? {
         switch self {
         case .noAvailableScreenSource:
             "No display or window source is currently available."
+        case .cameraPermissionDenied:
+            "Camera access is required for the selected recording mode."
+        case .microphonePermissionDenied:
+            "Microphone access is required while microphone capture is enabled."
         }
     }
 }
