@@ -147,6 +147,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Enforce camera/microphone permission preflight at recording start (covers source picker + quick recorder entry paths)
 - [x] Reuse shared AV permission helpers in quick recorder and disable quick controls during active recording states
 - [x] Fix onboarding camera/microphone denied flow to open System Settings and refresh status on app re-activation
+- [x] Unify screen-recording permission helper usage across quick recorder and source picker start paths
 
 ---
 
