@@ -363,9 +363,9 @@ final class RecordingEngine {
                 // Avoid compositing a second camera PiP into the writer.
                 cameraManager.setFrameHandler(nil)
             } else {
-                // Route camera frames directly to the writer (called on capture queue)
-                cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, _: CMTime) in
-                    self?.videoWriter?.updateCameraFrame(pixelBuffer)
+                // Camera-only mode: camera frames drive the writer timeline directly.
+                cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, pts: CMTime) in
+                    self?.videoWriter?.appendCameraVideoFrame(pixelBuffer, at: pts)
                 }
             }
         }

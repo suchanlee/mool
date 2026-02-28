@@ -14,7 +14,7 @@ final class VideoWriter: Sendable {
 
     enum WritingState { case idle, writing, finishing, finished, failed(any Error) }
 
-    private let stateQueue = DispatchQueue(label: "com.mool.writer.state")
+    private let stateLock = NSLock()
     private nonisolated(unsafe) var _state: WritingState = .idle
     private nonisolated(unsafe) var assetWriter: AVAssetWriter?
     private nonisolated(unsafe) var videoInput: AVAssetWriterInput?
@@ -44,158 +44,199 @@ final class VideoWriter: Sendable {
     // MARK: - Setup (called from @MainActor before capture starts)
 
     func setup(includeCamera: Bool, includeMicAudio: Bool, includeSystemAudio: Bool) throws {
-        try? FileManager.default.removeItem(at: outputURL)
+        try withStateLock {
+            let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
 
-        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
-
-        let videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: Int(videoSize.width),
-            AVVideoHeightKey: Int(videoSize.height),
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: videoBitrate,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-                AVVideoExpectedSourceFrameRateKey: 60
+            let videoSettings: [String: Any] = [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: Int(videoSize.width),
+                AVVideoHeightKey: Int(videoSize.height),
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoAverageBitRateKey: videoBitrate,
+                    AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                    AVVideoExpectedSourceFrameRateKey: 60
+                ]
             ]
-        ]
-        let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-        vInput.expectsMediaDataInRealTime = true
-        writer.add(vInput)
-        videoInput = vInput
+            let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+            vInput.expectsMediaDataInRealTime = true
+            writer.add(vInput)
+            videoInput = vInput
 
-        let bufferAttrs: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: Int(videoSize.width),
-            kCVPixelBufferHeightKey as String: Int(videoSize.height),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
-        ]
-        pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: vInput,
-            sourcePixelBufferAttributes: bufferAttrs
-        )
-
-        if includeMicAudio {
-            let audioSettings: [String: Any] = [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 48000,
-                AVNumberOfChannelsKey: 2,
-                AVEncoderBitRateKey: 192_000
+            let bufferAttrs: [String: Any] = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: Int(videoSize.width),
+                kCVPixelBufferHeightKey as String: Int(videoSize.height),
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
             ]
-            let aInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
-            aInput.expectsMediaDataInRealTime = true
-            writer.add(aInput)
-            audioMicInput = aInput
+            pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+                assetWriterInput: vInput,
+                sourcePixelBufferAttributes: bufferAttrs
+            )
+
+            if includeMicAudio {
+                let audioSettings: [String: Any] = [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 48000,
+                    AVNumberOfChannelsKey: 2,
+                    AVEncoderBitRateKey: 192_000
+                ]
+                let aInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+                aInput.expectsMediaDataInRealTime = true
+                writer.add(aInput)
+                audioMicInput = aInput
+            }
+
+            if includeSystemAudio {
+                let audioSettings: [String: Any] = [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 48000,
+                    AVNumberOfChannelsKey: 2,
+                    AVEncoderBitRateKey: 192_000
+                ]
+                let sInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+                sInput.expectsMediaDataInRealTime = true
+                writer.add(sInput)
+                audioSysInput = sInput
+            }
+
+            writer.startWriting()
+            assetWriter = writer
+            _state = .writing
         }
-
-        if includeSystemAudio {
-            let audioSettings: [String: Any] = [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 48000,
-                AVNumberOfChannelsKey: 2,
-                AVEncoderBitRateKey: 192_000
-            ]
-            let sInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
-            sInput.expectsMediaDataInRealTime = true
-            writer.add(sInput)
-            audioSysInput = sInput
-        }
-
-        writer.startWriting()
-        assetWriter = writer
-        _state = .writing
     }
 
     // MARK: - Frame ingestion (called from capture queues — NOT main actor)
 
     func appendVideoFrame(_ sampleBuffer: CMSampleBuffer) {
-        guard case .writing = _state else { return }
-        guard !isPaused else { return }
-        guard let vInput = videoInput, let adaptor = pixelBufferAdaptor else { return }
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        withStateLock {
+            guard case .writing = _state else { return }
+            guard !isPaused else { return }
+            guard let vInput = videoInput, let adaptor = pixelBufferAdaptor else { return }
+            guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        let pts = adjustedPTS(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
+            let pts = adjustedPTS(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
 
-        if !sessionStarted {
-            assetWriter?.startSession(atSourceTime: pts)
-            sessionStarted = true
-        }
+            if !sessionStarted {
+                assetWriter?.startSession(atSourceTime: pts)
+                sessionStarted = true
+            }
 
-        guard vInput.isReadyForMoreMediaData else { return }
+            guard vInput.isReadyForMoreMediaData else { return }
 
-        if let cameraBuffer = latestCameraBuffer {
-            let composited = composite(screen: imageBuffer, camera: cameraBuffer)
-            adaptor.append(composited ?? imageBuffer, withPresentationTime: pts)
-        } else {
-            adaptor.append(imageBuffer, withPresentationTime: pts)
+            if let cameraBuffer = latestCameraBuffer {
+                let composited = composite(screen: imageBuffer, camera: cameraBuffer)
+                adaptor.append(composited ?? imageBuffer, withPresentationTime: pts)
+            } else {
+                adaptor.append(imageBuffer, withPresentationTime: pts)
+            }
         }
     }
 
     func updateCameraFrame(_ pixelBuffer: CVPixelBuffer) {
-        latestCameraBuffer = pixelBuffer
+        withStateLock {
+            latestCameraBuffer = pixelBuffer
+        }
+    }
+
+    /// In camera-only mode there is no SCStream video callback, so camera frames
+    /// drive the writer session timeline directly.
+    func appendCameraVideoFrame(_ pixelBuffer: CVPixelBuffer, at pts: CMTime) {
+        withStateLock {
+            guard case .writing = _state else { return }
+            guard !isPaused else { return }
+            guard let vInput = videoInput, let adaptor = pixelBufferAdaptor else { return }
+
+            let adjusted = adjustedPTS(pts)
+            if !sessionStarted {
+                assetWriter?.startSession(atSourceTime: adjusted)
+                sessionStarted = true
+            }
+
+            guard vInput.isReadyForMoreMediaData else { return }
+            adaptor.append(pixelBuffer, withPresentationTime: adjusted)
+        }
     }
 
     func appendMicAudio(_ sampleBuffer: CMSampleBuffer) {
-        guard case .writing = _state, sessionStarted else { return }
-        guard !isPaused, let aInput = audioMicInput, aInput.isReadyForMoreMediaData else { return }
-        aInput.append(sampleBuffer)
+        withStateLock {
+            guard case .writing = _state, sessionStarted else { return }
+            guard !isPaused, let aInput = audioMicInput, aInput.isReadyForMoreMediaData else { return }
+            aInput.append(sampleBuffer)
+        }
     }
 
     func appendSystemAudio(_ sampleBuffer: CMSampleBuffer) {
-        guard case .writing = _state, sessionStarted else { return }
-        guard !isPaused, let sInput = audioSysInput, sInput.isReadyForMoreMediaData else { return }
-        sInput.append(sampleBuffer)
+        withStateLock {
+            guard case .writing = _state, sessionStarted else { return }
+            guard !isPaused, let sInput = audioSysInput, sInput.isReadyForMoreMediaData else { return }
+            sInput.append(sampleBuffer)
+        }
     }
 
     // MARK: - Pause / Resume
 
     func pause(at time: CMTime) {
-        isPaused = true
-        pauseStartTime = time
+        withStateLock {
+            isPaused = true
+            pauseStartTime = time
+        }
     }
 
     func resume(at time: CMTime) {
-        guard isPaused else { return }
-        let delta = CMTimeSubtract(time, pauseStartTime)
-        totalPausedDuration = CMTimeAdd(totalPausedDuration, delta)
-        isPaused = false
+        withStateLock {
+            guard isPaused else { return }
+            let delta = CMTimeSubtract(time, pauseStartTime)
+            totalPausedDuration = CMTimeAdd(totalPausedDuration, delta)
+            isPaused = false
+        }
     }
 
     // MARK: - Finish (called from @MainActor)
 
     func finish() async throws -> URL {
-        guard case .writing = _state else { throw WriterError.notWriting }
-        _state = .finishing
+        let writer = try withStateLock { () -> AVAssetWriter in
+            guard case .writing = _state else { throw WriterError.notWriting }
+            _state = .finishing
 
-        videoInput?.markAsFinished()
-        audioMicInput?.markAsFinished()
-        audioSysInput?.markAsFinished()
+            videoInput?.markAsFinished()
+            audioMicInput?.markAsFinished()
+            audioSysInput?.markAsFinished()
 
-        guard let writer = assetWriter else { throw WriterError.notWriting }
+            guard let writer = assetWriter else { throw WriterError.notWriting }
+            return writer
+        }
+
         await writer.finishWriting()
 
         if writer.status == .failed {
             let err = writer.error ?? WriterError.unknown
-            _state = .failed(err)
+            withStateLock {
+                _state = .failed(err)
+            }
             throw err
         }
 
-        _state = .finished
-        return outputURL
+        return withStateLock {
+            _state = .finished
+            return outputURL
+        }
     }
 
     func cancel() {
-        assetWriter?.cancelWriting()
-        videoInput = nil
-        audioMicInput = nil
-        audioSysInput = nil
-        pixelBufferAdaptor = nil
-        assetWriter = nil
-        sessionStarted = false
-        latestCameraBuffer = nil
-        isPaused = false
-        pauseStartTime = .invalid
-        totalPausedDuration = .zero
-        _state = .idle
+        withStateLock {
+            assetWriter?.cancelWriting()
+            videoInput = nil
+            audioMicInput = nil
+            audioSysInput = nil
+            pixelBufferAdaptor = nil
+            assetWriter = nil
+            sessionStarted = false
+            latestCameraBuffer = nil
+            isPaused = false
+            pauseStartTime = .invalid
+            totalPausedDuration = .zero
+            _state = .idle
+        }
         try? FileManager.default.removeItem(at: outputURL)
     }
 
@@ -203,6 +244,12 @@ final class VideoWriter: Sendable {
 
     private func adjustedPTS(_ pts: CMTime) -> CMTime {
         CMTimeSubtract(pts, totalPausedDuration)
+    }
+
+    private func withStateLock<T>(_ body: () throws -> T) rethrows -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return try body()
     }
 
     private func composite(screen: CVPixelBuffer, camera: CVPixelBuffer) -> CVPixelBuffer? {
