@@ -115,7 +115,7 @@ AppDelegate
   │     ├── annotationOverlayWindow: AnnotationOverlayWindow
   │     ├── speakerNotesWindow: SpeakerNotesWindow
   │     └── sourcePickerController: SourcePickerController
-  └── menuBarController: MenuBarController(engine:coordinator:permissions:)
+  └── menuBarController: MenuBarController(engine:coordinator:permissions:openLibraryWindow:openSettingsWindow:)
 ```
 
 `SwiftUI` scenes (`Library`, `Settings`) receive `recordingEngine` and `storageManager` via `.environment(obj)` (not `.environmentObject` — we use `@Observable`, not `ObservableObject`).
@@ -136,6 +136,7 @@ AppDelegate
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.
      - When the popover closes, it tears down quick-recorder context and hides that quick preview bubble.
    - Right click: `MenuBarController` opens context menu with actions.
+     - `Open Library` / `Settings…` are routed to explicit AppDelegate window presenters (instead of responder-chain selectors) for deterministic behavior from status-menu context.
 3. User starts recording from quick recorder or source picker.
 4. `RecordingEngine.startRecording()`:
    - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)

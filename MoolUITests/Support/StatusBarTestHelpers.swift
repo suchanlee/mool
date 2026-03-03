@@ -1,6 +1,14 @@
 import XCTest
 
 extension XCTestCase {
+    private func rightClickStatusItem(_ statusItem: XCUIElement) {
+        if statusItem.isHittable {
+            statusItem.rightClick()
+        } else {
+            statusItem.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).rightClick()
+        }
+    }
+
     /// Opens the app's status item menu with retries to reduce flakiness.
     func openStatusMenu(
         in app: XCUIApplication,
@@ -11,12 +19,8 @@ extension XCTestCase {
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5), "Status item not found", file: file, line: line)
 
         let menuSentinel = statusItem.menuItems["status.openLibrary"].firstMatch
-        for _ in 0..<5 {
-            if statusItem.isHittable {
-                statusItem.click()
-            } else {
-                statusItem.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-            }
+        for _ in 0 ..< 5 {
+            rightClickStatusItem(statusItem)
 
             if menuSentinel.waitForExistence(timeout: 0.6) {
                 return statusItem
@@ -48,7 +52,7 @@ extension XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        for _ in 0..<3 {
+        for _ in 0 ..< 3 {
             let item = statusMenuItem(identifier, in: app, file: file, line: line)
             if !item.isEnabled {
                 XCTFail("Menu item '\(identifier)' is disabled", file: file, line: line)

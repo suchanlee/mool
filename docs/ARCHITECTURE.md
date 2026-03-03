@@ -25,6 +25,7 @@ Mool is a local-only macOS screen recording app inspired by Loom. All recordings
 MoolApp (SwiftUI App)
   └─ AppDelegate (NSApplicationDelegate)
        ├─ MenuBarController         ← NSStatusItem + quick recorder popover/menu
+       ├─ Library/Settings presenters ← explicit NSWindow presenters for status-menu actions
        ├─ RecordingEngine           ← orchestrates all capture
        │    ├─ ScreenCaptureManager  (ScreenCaptureKit / SCStream)
        │    ├─ CameraManager         (AVCaptureSession)
@@ -146,6 +147,7 @@ If capture setup fails after countdown, `RecordingEngine` rolls back partial sta
 (stop capture sessions, cancel writer, reset state to `.idle`) and UI controllers hide overlays.
 
 After a successful recording stops, the menu bar controller opens the Library window automatically.
+Status-menu `Open Library` / `Settings…` actions are handled through explicit AppDelegate window presenters so menu item dispatch does not depend on responder-chain selectors.
 
 Countdown behavior:
 - `RecordingEngine.state = .countdown(secondsRemaining:)` before capture starts.

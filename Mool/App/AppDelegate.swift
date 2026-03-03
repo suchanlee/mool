@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var menuBarController: MenuBarController?
     private var windowCoordinator: WindowCoordinator?
+    private var libraryWindow: NSWindow?
+    private var settingsWindow: NSWindow?
 
     // MARK: - Init
 
@@ -39,17 +41,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBarController = MenuBarController(
             recordingEngine: recordingEngine,
             windowCoordinator: coordinator,
-            permissionManager: permissionManager
+            permissionManager: permissionManager,
+            openLibraryWindow: { [weak self] in
+                self?.presentLibraryWindow()
+            },
+            openSettingsWindow: { [weak self] in
+                self?.presentSettingsWindow()
+            }
         )
 
-        // Apply default OFF for camera/mic when permission has never been decided.
-        permissionManager.checkCamera()
-        permissionManager.checkMicrophone()
-        applyUndeterminedAVPermissionDefaults()
-
-        // Check full permission state on launch (non-blocking).
+        // Refresh permission state on launch (non-blocking), then apply defaults.
         Task {
-            await permissionManager.checkAllPermissions()
+            await permissionManager.refresh()
+            applyUndeterminedAVPermissionDefaults()
         }
 
         runUITestLaunchActionIfNeeded(coordinator: coordinator)
@@ -118,13 +122,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func performUITestLaunchAction(_ action: UITestLaunchAction, coordinator: WindowCoordinator) {
         switch action {
         case .openLibrary:
-            let selector = Selector(("showLibraryWindow:"))
-            print("[UITest] showLibraryWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: nil)))
-            NSApp.sendAction(selector, to: nil, from: nil)
+            presentLibraryWindow()
         case .openSettings:
-            let selector = Selector(("showSettingsWindow:"))
-            print("[UITest] showSettingsWindow target:", String(describing: NSApp.target(forAction: selector, to: nil, from: nil)))
-            NSApp.sendAction(selector, to: nil, from: nil)
+            presentSettingsWindow()
         case .openSourcePicker:
             coordinator.showSourcePicker()
         }
@@ -152,6 +152,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             recordingEngine.settings.captureMicrophone = false
             recordingEngine.settings.save()
         }
+    }
+
+    private func presentLibraryWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let existing = NSApp.windows.first(where: { $0.title == "Library" }) {
+            existing.makeKeyAndOrderFront(nil)
+            libraryWindow = existing
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Library"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(
+            rootView: LibraryView()
+                .environment(storageManager)
+                .environment(recordingEngine)
+        )
+        window.makeKeyAndOrderFront(nil)
+        libraryWindow = window
+    }
+
+    private func presentSettingsWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let existing = NSApp.windows.first(where: {
+            $0.title.contains("Settings") || $0.title.contains("Preferences")
+        }) {
+            existing.makeKeyAndOrderFront(nil)
+            settingsWindow = existing
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 380),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Settings"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(
+            rootView: SettingsView()
+                .environment(recordingEngine)
+                .environment(storageManager)
+        )
+        window.makeKeyAndOrderFront(nil)
+        settingsWindow = window
     }
 }
 

@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Manages the NSStatusItem (menu bar icon) and associated menu/popover.
 @MainActor
-final class MenuBarController: NSObject, NSPopoverDelegate {
+final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var statusBarMenu: NSMenu?
     private let quickRecorderPopover = NSPopover()
@@ -16,21 +16,28 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private var localPopoverClickMonitor: Any?
     private var globalPopoverClickMonitor: Any?
     private var localPopoverKeyMonitor: Any?
+    private let menuActionTracePath = ProcessInfo.processInfo.environment["MOOL_STATUS_MENU_TRACE_PATH"]
 
     private unowned let recordingEngine: RecordingEngine
     private unowned let windowCoordinator: WindowCoordinator
     private unowned let permissionManager: PermissionManager
+    private let openLibraryWindow: @MainActor () -> Void
+    private let openSettingsWindow: @MainActor () -> Void
 
     // MARK: - Init
 
     init(
         recordingEngine: RecordingEngine,
         windowCoordinator: WindowCoordinator,
-        permissionManager: PermissionManager
+        permissionManager: PermissionManager,
+        openLibraryWindow: @escaping @MainActor () -> Void,
+        openSettingsWindow: @escaping @MainActor () -> Void
     ) {
         self.recordingEngine = recordingEngine
         self.windowCoordinator = windowCoordinator
         self.permissionManager = permissionManager
+        self.openLibraryWindow = openLibraryWindow
+        self.openSettingsWindow = openSettingsWindow
         super.init()
         setupStatusItem()
         observeRecordingEngine()
@@ -62,22 +69,23 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private func buildMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        menu.delegate = self
 
-        let startItem = menu.addItem(withTitle: "Start Recording", action: #selector(startRecording), keyEquivalent: "")
+        let startItem = menu.addItem(withTitle: "Start Recording", action: #selector(startRecordingMenuAction(_:)), keyEquivalent: "")
         startItem.target = self
         startItem.identifier = NSUserInterfaceItemIdentifier("status.startRecording")
 
-        let stopItem = menu.addItem(withTitle: "Stop Recording", action: #selector(stopRecording), keyEquivalent: "")
+        let stopItem = menu.addItem(withTitle: "Stop Recording", action: #selector(stopRecordingMenuAction(_:)), keyEquivalent: "")
         stopItem.target = self
         stopItem.identifier = NSUserInterfaceItemIdentifier("status.stopRecording")
 
         menu.addItem(.separator())
 
-        let libraryItem = menu.addItem(withTitle: "Open Library", action: #selector(openLibrary), keyEquivalent: "")
+        let libraryItem = menu.addItem(withTitle: "Open Library", action: #selector(openLibraryMenuAction(_:)), keyEquivalent: "")
         libraryItem.target = self
         libraryItem.identifier = NSUserInterfaceItemIdentifier("status.openLibrary")
 
-        let settingsItem = menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = menu.addItem(withTitle: "Settings…", action: #selector(openSettingsMenuAction(_:)), keyEquivalent: ",")
         settingsItem.target = self
         settingsItem.identifier = NSUserInterfaceItemIdentifier("status.openSettings")
 
@@ -172,20 +180,43 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     @objc private func statusBarButtonClicked(_ sender: NSStatusBarButton) {
         guard let event = NSApp.currentEvent else {
+            traceMenuAction("statusBarButtonClicked event=nil -> quickPopover")
             toggleQuickRecorderPopover()
             return
         }
 
         switch event.type {
         case .rightMouseUp:
+            traceMenuAction("statusBarButtonClicked rightMouseUp -> contextMenu")
             closeQuickRecorderPopover()
             showContextMenu()
         default:
+            traceMenuAction("statusBarButtonClicked \(event.type.rawValue) -> quickPopover")
             toggleQuickRecorderPopover()
         }
     }
 
-    @objc private func startRecording() {
+    @objc private func startRecordingMenuAction(_ sender: Any?) {
+        traceMenuAction("startRecordingMenuAction")
+        startRecording()
+    }
+
+    @objc private func stopRecordingMenuAction(_ sender: Any?) {
+        traceMenuAction("stopRecordingMenuAction")
+        stopRecording()
+    }
+
+    @objc private func openLibraryMenuAction(_ sender: Any?) {
+        traceMenuAction("openLibraryMenuAction")
+        openLibrary()
+    }
+
+    @objc private func openSettingsMenuAction(_ sender: Any?) {
+        traceMenuAction("openSettingsMenuAction")
+        openSettings()
+    }
+
+    private func startRecording() {
         closeQuickRecorderPopover()
         Task {
             guard await ensureScreenRecordingPermissionIfNeeded() else {
@@ -203,7 +234,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    @objc private func stopRecording() {
+    private func stopRecording() {
         closeQuickRecorderPopover()
         Task {
             await recordingEngine.stopRecording()
@@ -211,29 +242,69 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    @objc private func openLibrary() {
+    private func openLibrary() {
         closeQuickRecorderPopover()
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title == "Library" }) {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            NSApp.sendAction(Selector(("showLibraryWindow:")), to: nil, from: self)
+        // Defer until the status menu finishes its tracking loop.
+        DispatchQueue.main.async { [weak self] in
+            self?.activateAndPresentLibraryWindow()
         }
     }
 
-    @objc private func openSettings() {
+    private func openSettings() {
         closeQuickRecorderPopover()
+        // Defer until the status menu finishes its tracking loop.
+        DispatchQueue.main.async { [weak self] in
+            self?.activateAndPresentSettingsWindow()
+        }
+    }
+
+    private func activateAndPresentLibraryWindow() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        openLibraryWindow()
+        traceMenuAction("activateAndPresentLibraryWindow presenterInvoked")
+    }
+
+    private func activateAndPresentSettingsWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        openSettingsWindow()
+        traceMenuAction("activateAndPresentSettingsWindow presenterInvoked")
     }
 
     private func showContextMenu() {
         guard let menu = statusBarMenu, let item = statusItem else { return }
+        traceMenuAction("showContextMenu begin")
         item.menu = menu
         item.button?.performClick(nil)
-        item.menu = nil
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        guard menu == statusBarMenu else { return }
+        traceMenuAction("menuDidClose")
+        statusItem?.menu = nil
+    }
+
+    private func traceMenuAction(_ message: String) {
+        guard let menuActionTracePath, !menuActionTracePath.isEmpty else { return }
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "\(timestamp) \(message)\n"
+        let url = URL(fileURLWithPath: menuActionTracePath)
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: menuActionTracePath),
+               let handle = try? FileHandle(forWritingTo: url)
+            {
+                do {
+                    try handle.seekToEnd()
+                    try handle.write(contentsOf: data)
+                    try handle.close()
+                } catch {
+                    try? data.write(to: url, options: .atomic)
+                }
+            } else {
+                try? data.write(to: url, options: .atomic)
+            }
+        }
     }
 
     private func toggleQuickRecorderPopover() {
@@ -307,7 +378,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func ensureScreenRecordingPermissionIfNeeded() async -> Bool {
         guard recordingEngine.settings.mode.includesScreen else { return true }
-        return await permissionManager.ensureScreenRecordingPermission(openSettingsOnDeny: true)
+        if permissionManager.screenRecording == .granted { return true }
+        let granted = await permissionManager.requestScreenRecording()
+        if !granted { permissionManager.openScreenRecordingSettings() }
+        return granted
     }
 
     // MARK: - Popover Dismissal Monitoring
