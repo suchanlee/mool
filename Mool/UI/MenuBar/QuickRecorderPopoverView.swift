@@ -139,14 +139,15 @@ struct QuickRecorderPopoverView: View {
                         return
                     }
 
-                    switch AVCaptureDevice.authorizationStatus(for: .video) {
-                    case .authorized:
+                    await permissionManager.refresh()
+                    switch permissionManager.camera {
+                    case .granted:
                         engine.setCameraEnabled(true)
                         onCameraVisibilityChanged()
                         refreshInputDevices()
-                    case .denied, .restricted:
+                    case .denied:
                         permissionManager.openCameraSettings()
-                    default:
+                    case .notDetermined:
                         let granted = await permissionManager.requestCamera()
                         if granted {
                             engine.setCameraEnabled(true)
@@ -156,6 +157,7 @@ struct QuickRecorderPopoverView: View {
                     }
                 }
             }
+            .accessibilityIdentifier("quickRecorder.toggle.camera")
             .padding(.trailing, 12)
             .zIndex(1)
         }
@@ -198,13 +200,14 @@ struct QuickRecorderPopoverView: View {
                         return
                     }
 
-                    switch AVCaptureDevice.authorizationStatus(for: .audio) {
-                    case .authorized:
+                    await permissionManager.refresh()
+                    switch permissionManager.microphone {
+                    case .granted:
                         engine.settings.captureMicrophone = true
                         engine.settings.save()
-                    case .denied, .restricted:
+                    case .denied:
                         permissionManager.openMicrophoneSettings()
-                    default:
+                    case .notDetermined:
                         let granted = await permissionManager.requestMicrophone()
                         if granted {
                             engine.settings.captureMicrophone = true
@@ -213,6 +216,7 @@ struct QuickRecorderPopoverView: View {
                     }
                 }
             }
+            .accessibilityIdentifier("quickRecorder.toggle.microphone")
             .padding(.trailing, 12)
             .zIndex(1)
         }
@@ -231,6 +235,7 @@ struct QuickRecorderPopoverView: View {
                 engine.settings.captureSystemAudio.toggle()
                 engine.settings.save()
             }
+            .accessibilityIdentifier("quickRecorder.toggle.systemAudio")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

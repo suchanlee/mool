@@ -72,6 +72,8 @@ final class StatusMenuActionsUITests: XCTestCase {
         let app = launchApp(
             environment: [
                 "MOOL_TEST_SCREEN_PERMISSION": "denied",
+                "MOOL_TEST_CAMERA_PERMISSION": "granted",
+                "MOOL_TEST_MIC_PERMISSION": "granted",
                 "MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN": "1",
                 "MOOL_PERMISSION_TRACE_PATH": permissionTraceURL.path,
                 "MOOL_RECORDING_TEST_MODE": "stub_success",
@@ -85,9 +87,21 @@ final class StatusMenuActionsUITests: XCTestCase {
             waitForElementLabel(startButton, equals: "Record (need permission)"),
             "Unexpected quick recorder button label: \(startButton.label)"
         )
+        flipQuickRecorderToggle("quickRecorder.toggle.camera", in: app)
+        flipQuickRecorderToggle("quickRecorder.toggle.camera", in: app)
+        flipQuickRecorderToggle("quickRecorder.toggle.microphone", in: app)
+        flipQuickRecorderToggle("quickRecorder.toggle.microphone", in: app)
         XCTAssertFalse(
             waitForTraceEntry("requestScreenRecording", in: permissionTraceURL, timeout: 1),
             "Screen permission should not be requested when opening the popover"
+        )
+        XCTAssertFalse(
+            waitForTraceEntry("openCameraSettings", in: permissionTraceURL, timeout: 1),
+            "Camera settings should not open when camera permission is granted"
+        )
+        XCTAssertFalse(
+            waitForTraceEntry("openMicrophoneSettings", in: permissionTraceURL, timeout: 1),
+            "Microphone settings should not open when microphone permission is granted"
         )
         click(startButton)
 
@@ -115,6 +129,8 @@ final class StatusMenuActionsUITests: XCTestCase {
         let app = launchApp(
             environment: [
                 "MOOL_TEST_SCREEN_PERMISSION": "granted",
+                "MOOL_TEST_CAMERA_PERMISSION": "granted",
+                "MOOL_TEST_MIC_PERMISSION": "granted",
                 "MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN": "1",
                 "MOOL_PERMISSION_TRACE_PATH": permissionTraceURL.path,
                 "MOOL_RECORDING_TEST_MODE": "stub_success",
@@ -127,9 +143,21 @@ final class StatusMenuActionsUITests: XCTestCase {
             waitForElementLabel(startButton, equals: "Record"),
             "Unexpected quick recorder button label: \(startButton.label)"
         )
+        flipQuickRecorderToggle("quickRecorder.toggle.camera", in: app)
+        flipQuickRecorderToggle("quickRecorder.toggle.camera", in: app)
+        flipQuickRecorderToggle("quickRecorder.toggle.microphone", in: app)
+        flipQuickRecorderToggle("quickRecorder.toggle.microphone", in: app)
         XCTAssertFalse(
             waitForTraceEntry("requestScreenRecording", in: permissionTraceURL, timeout: 1),
             "Screen permission should not be requested when opening the popover"
+        )
+        XCTAssertFalse(
+            waitForTraceEntry("openCameraSettings", in: permissionTraceURL, timeout: 1),
+            "Camera settings should not open when camera permission is granted"
+        )
+        XCTAssertFalse(
+            waitForTraceEntry("openMicrophoneSettings", in: permissionTraceURL, timeout: 1),
+            "Microphone settings should not open when microphone permission is granted"
         )
         click(startButton)
 
@@ -195,6 +223,17 @@ final class StatusMenuActionsUITests: XCTestCase {
         return app
     }
 
+    private func flipQuickRecorderToggle(_ identifier: String, in app: XCUIApplication) {
+        let toggle = app.buttons[identifier].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 2), "Toggle '\(identifier)' not found")
+        let initialLabel = toggle.label
+        click(toggle)
+        XCTAssertTrue(
+            waitForElementLabel(toggle, differsFrom: initialLabel, timeout: 3),
+            "Toggle '\(identifier)' did not change state from '\(initialLabel)'"
+        )
+    }
+
     private func waitForElementLabel(
         _ element: XCUIElement,
         equals expectedLabel: String,
@@ -203,6 +242,21 @@ final class StatusMenuActionsUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if element.exists, element.label == expectedLabel {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func waitForElementLabel(
+        _ element: XCUIElement,
+        differsFrom previousLabel: String,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.label != previousLabel {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))

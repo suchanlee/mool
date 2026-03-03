@@ -16,7 +16,7 @@ enum PermissionStatus {
 @Observable
 @MainActor
 final class PermissionManager {
-    private enum ScreenPermissionOverride: String {
+    private enum PermissionOverride: String {
         case granted
         case denied
         case notDetermined
@@ -33,7 +33,9 @@ final class PermissionManager {
     private let env = ProcessInfo.processInfo.environment
     private let permissionTracePath: String?
     private let disableSettingsOpen: Bool
-    private let screenPermissionOverride: ScreenPermissionOverride?
+    private let screenPermissionOverride: PermissionOverride?
+    private let cameraPermissionOverride: PermissionOverride?
+    private let microphonePermissionOverride: PermissionOverride?
 
     var screenRecording: PermissionStatus = .notDetermined
     var camera: PermissionStatus = .notDetermined
@@ -44,9 +46,19 @@ final class PermissionManager {
         permissionTracePath = env["MOOL_PERMISSION_TRACE_PATH"]
         disableSettingsOpen = env["MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN"] == "1"
         if let rawValue = env["MOOL_TEST_SCREEN_PERMISSION"] {
-            screenPermissionOverride = ScreenPermissionOverride(rawValue: rawValue)
+            screenPermissionOverride = PermissionOverride(rawValue: rawValue)
         } else {
             screenPermissionOverride = nil
+        }
+        if let rawValue = env["MOOL_TEST_CAMERA_PERMISSION"] {
+            cameraPermissionOverride = PermissionOverride(rawValue: rawValue)
+        } else {
+            cameraPermissionOverride = nil
+        }
+        if let rawValue = env["MOOL_TEST_MIC_PERMISSION"] {
+            microphonePermissionOverride = PermissionOverride(rawValue: rawValue)
+        } else {
+            microphonePermissionOverride = nil
         }
     }
 
@@ -72,19 +84,33 @@ final class PermissionManager {
     }
 
     private func refreshCamera() {
+        if let cameraPermissionOverride {
+            camera = cameraPermissionOverride.status
+            tracePermission("refreshCamera override=\(cameraPermissionOverride.rawValue)")
+            return
+        }
+
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: camera = .granted
         case .notDetermined: camera = .notDetermined
         default: camera = .denied
         }
+        tracePermission("refreshCamera status=\(statusDescription(camera))")
     }
 
     private func refreshMicrophone() {
+        if let microphonePermissionOverride {
+            microphone = microphonePermissionOverride.status
+            tracePermission("refreshMicrophone override=\(microphonePermissionOverride.rawValue)")
+            return
+        }
+
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: microphone = .granted
         case .notDetermined: microphone = .notDetermined
         default: microphone = .denied
         }
+        tracePermission("refreshMicrophone status=\(statusDescription(microphone))")
     }
 
     private func refreshAccessibility() {
@@ -120,8 +146,15 @@ final class PermissionManager {
     /// Returns false (without prompting) if already denied.
     @discardableResult
     func requestCamera() async -> Bool {
+        if let cameraPermissionOverride {
+            camera = cameraPermissionOverride.status
+            tracePermission("requestCamera override=\(cameraPermissionOverride.rawValue)")
+            return camera == .granted
+        }
+
         let granted = await AVCaptureDevice.requestAccess(for: .video)
         camera = granted ? .granted : .denied
+        tracePermission("requestCamera result=\(statusDescription(camera))")
         return granted
     }
 
@@ -129,8 +162,15 @@ final class PermissionManager {
     /// Returns false (without prompting) if already denied.
     @discardableResult
     func requestMicrophone() async -> Bool {
+        if let microphonePermissionOverride {
+            microphone = microphonePermissionOverride.status
+            tracePermission("requestMicrophone override=\(microphonePermissionOverride.rawValue)")
+            return microphone == .granted
+        }
+
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         microphone = granted ? .granted : .denied
+        tracePermission("requestMicrophone result=\(statusDescription(microphone))")
         return granted
     }
 
@@ -145,12 +185,16 @@ final class PermissionManager {
     }
 
     func openCameraSettings() {
+        tracePermission("openCameraSettings")
+        if disableSettingsOpen { return }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
             NSWorkspace.shared.open(url)
         }
     }
 
     func openMicrophoneSettings() {
+        tracePermission("openMicrophoneSettings")
+        if disableSettingsOpen { return }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
             NSWorkspace.shared.open(url)
         }
