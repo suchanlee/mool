@@ -48,7 +48,9 @@ final class SourcePickerController {
                 self?.dismiss()
             }
         )
-        win.contentView = NSHostingView(rootView: view)
+        win.contentView = NSHostingView(
+            rootView: view.environment(permissionManager)
+        )
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window = win
@@ -58,7 +60,6 @@ final class SourcePickerController {
         dismiss()
         Task {
             guard await ensureScreenRecordingPermissionIfNeeded() else {
-                showError(ScreenCaptureError.permissionDenied)
                 return
             }
 
@@ -66,6 +67,9 @@ final class SourcePickerController {
                 try await engine.startRecording()
                 coordinator.showOverlays()
             } catch {
+                if handleScreenPermissionDenied(error) {
+                    return
+                }
                 coordinator.hideOverlays()
                 engine.teardownQuickRecorderContext()
                 showError(error)
@@ -93,5 +97,13 @@ final class SourcePickerController {
         let granted = await permissionManager.requestScreenRecording()
         if !granted { permissionManager.openScreenRecordingSettings() }
         return granted
+    }
+
+    private func handleScreenPermissionDenied(_ error: Error) -> Bool {
+        guard let captureError = error as? ScreenCaptureError else { return false }
+        guard case .permissionDenied = captureError else { return false }
+
+        permissionManager.openScreenRecordingSettings()
+        return true
     }
 }

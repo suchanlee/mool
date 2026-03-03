@@ -221,13 +221,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         closeQuickRecorderPopover()
         Task {
             guard await ensureScreenRecordingPermissionIfNeeded() else {
-                showError(ScreenCaptureError.permissionDenied)
                 return
             }
             do {
                 try await recordingEngine.startRecording()
                 windowCoordinator.showOverlays()
             } catch {
+                if handleScreenPermissionDenied(error) {
+                    return
+                }
                 windowCoordinator.hideOverlays()
                 recordingEngine.teardownQuickRecorderContext()
                 showError(error)
@@ -370,6 +372,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     }
 
     private func showError(_ error: Error) {
+        traceMenuAction("showError \(error.localizedDescription)")
         if suppressRecordingErrorAlerts {
             traceMenuAction("showError suppressed \(error.localizedDescription)")
             return
@@ -388,6 +391,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         let granted = await permissionManager.requestScreenRecording()
         if !granted { permissionManager.openScreenRecordingSettings() }
         return granted
+    }
+
+    private func handleScreenPermissionDenied(_ error: Error) -> Bool {
+        guard let captureError = error as? ScreenCaptureError else { return false }
+        guard case .permissionDenied = captureError else { return false }
+
+        permissionManager.openScreenRecordingSettings()
+        return true
     }
 
     // MARK: - Popover Dismissal Monitoring

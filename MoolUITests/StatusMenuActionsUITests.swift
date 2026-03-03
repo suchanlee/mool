@@ -68,18 +68,24 @@ final class StatusMenuActionsUITests: XCTestCase {
     func testQuickRecorderStart_whenScreenPermissionDenied_opensSettingsPromptFlow() {
         let permissionTraceURL = makeTraceURL(prefix: "mool-permission-trace")
         let recordingTraceURL = makeTraceURL(prefix: "mool-recording-trace")
+        let statusTraceURL = makeTraceURL(prefix: "mool-status-menu-trace")
         let app = launchApp(
             environment: [
                 "MOOL_TEST_SCREEN_PERMISSION": "denied",
                 "MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN": "1",
-                "MOOL_SUPPRESS_RECORDING_ERROR_ALERTS": "1",
                 "MOOL_PERMISSION_TRACE_PATH": permissionTraceURL.path,
                 "MOOL_RECORDING_TEST_MODE": "stub_success",
-                "MOOL_RECORDING_TRACE_PATH": recordingTraceURL.path
+                "MOOL_RECORDING_TRACE_PATH": recordingTraceURL.path,
+                "MOOL_STATUS_MENU_TRACE_PATH": statusTraceURL.path
             ]
         )
 
-        clickQuickRecorderStart(in: app)
+        let startButton = openQuickRecorderPopover(in: app)
+        XCTAssertTrue(
+            waitForElementLabel(startButton, equals: "Record (need permission)"),
+            "Unexpected quick recorder button label: \(startButton.label)"
+        )
+        click(startButton)
 
         XCTAssertTrue(
             waitForTraceEntry("requestScreenRecording override=denied", in: permissionTraceURL),
@@ -93,6 +99,10 @@ final class StatusMenuActionsUITests: XCTestCase {
             waitForTraceEntry("startRecordingStubSuccess", in: recordingTraceURL, timeout: 1),
             "Recording unexpectedly started while screen permission was denied"
         )
+        XCTAssertFalse(
+            waitForTraceEntry("showError ", in: statusTraceURL, timeout: 1),
+            "Permission-denied flow should not show a recording failed alert"
+        )
     }
 
     func testQuickRecorderStart_whenScreenPermissionGranted_startsWithoutOpeningSettings() {
@@ -102,14 +112,18 @@ final class StatusMenuActionsUITests: XCTestCase {
             environment: [
                 "MOOL_TEST_SCREEN_PERMISSION": "granted",
                 "MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN": "1",
-                "MOOL_SUPPRESS_RECORDING_ERROR_ALERTS": "1",
                 "MOOL_PERMISSION_TRACE_PATH": permissionTraceURL.path,
                 "MOOL_RECORDING_TEST_MODE": "stub_success",
                 "MOOL_RECORDING_TRACE_PATH": recordingTraceURL.path
             ]
         )
 
-        clickQuickRecorderStart(in: app)
+        let startButton = openQuickRecorderPopover(in: app)
+        XCTAssertTrue(
+            waitForElementLabel(startButton, equals: "Record"),
+            "Unexpected quick recorder button label: \(startButton.label)"
+        )
+        click(startButton)
 
         XCTAssertTrue(
             waitForTraceEntry("refreshScreenRecording override=granted", in: permissionTraceURL),
@@ -171,6 +185,29 @@ final class StatusMenuActionsUITests: XCTestCase {
         app.activate()
         self.app = app
         return app
+    }
+
+    private func waitForElementLabel(
+        _ element: XCUIElement,
+        equals expectedLabel: String,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.label == expectedLabel {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func click(_ element: XCUIElement) {
+        if element.isHittable {
+            element.click()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
     }
 
     private func terminateRunningMoolInstances() {

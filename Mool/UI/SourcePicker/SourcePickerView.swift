@@ -1,3 +1,4 @@
+import AppKit
 import ScreenCaptureKit
 import SwiftUI
 
@@ -6,6 +7,7 @@ import SwiftUI
 /// Pre-recording sheet: choose mode, display/window, and kick off the recording.
 struct SourcePickerView: View {
     @Bindable var engine: RecordingEngine
+    @Environment(PermissionManager.self) private var permissionManager
     var onStartRecording: () -> Void
     var onCancel: () -> Void
 
@@ -43,9 +45,15 @@ struct SourcePickerView: View {
         .frame(width: 540, height: 540)
         .task {
             sourceTab = engine.settings.selectedWindowID == nil ? .display : .window
+            await permissionManager.refresh()
             isLoadingSources = true
             await engine.availableSources.refresh()
             isLoadingSources = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { @MainActor in
+                await permissionManager.refresh()
+            }
         }
         .onChange(of: sourceTab) { _, newValue in
             if newValue == .display {
@@ -237,7 +245,7 @@ struct SourcePickerView: View {
                 .keyboardShortcut(.escape, modifiers: [])
 
             Button(action: onStartRecording) {
-                Label("Record", systemImage: "record.circle.fill")
+                Label(recordButtonTitle, systemImage: "record.circle.fill")
                     .fontWeight(.semibold)
             }
             .buttonStyle(.borderedProminent)
@@ -247,6 +255,18 @@ struct SourcePickerView: View {
                 .selectedWindowID == nil)
             .accessibilityIdentifier("sourcePicker.record")
         }
+    }
+
+    private var recordButtonTitle: String {
+        if needsScreenRecordingPermission {
+            "Record (need permission)"
+        } else {
+            "Record"
+        }
+    }
+
+    private var needsScreenRecordingPermission: Bool {
+        engine.settings.mode.includesScreen && permissionManager.screenRecording != .granted
     }
 }
 

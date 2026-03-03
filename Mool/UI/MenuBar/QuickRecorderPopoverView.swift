@@ -33,6 +33,7 @@ struct QuickRecorderPopoverView: View {
         .disabled(engine.state != .idle)
         .task {
             captureTab = engine.settings.selectedWindowID == nil ? .display : .window
+            await permissionManager.refresh()
             refreshInputDevices()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -241,7 +242,7 @@ struct QuickRecorderPopoverView: View {
 
     private var startButton: some View {
         Button(action: onStartRecording) {
-            Text("Start recording")
+            Text(startButtonTitle)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -254,6 +255,18 @@ struct QuickRecorderPopoverView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("quickRecorder.startRecording")
         .padding(.top, 2)
+    }
+
+    private var startButtonTitle: String {
+        if needsScreenRecordingPermission {
+            "Record (need permission)"
+        } else {
+            "Record"
+        }
+    }
+
+    private var needsScreenRecordingPermission: Bool {
+        engine.settings.mode.includesScreen && permissionManager.screenRecording != .granted
     }
 
     private var sourceTitle: String {
