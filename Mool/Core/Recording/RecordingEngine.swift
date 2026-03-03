@@ -176,9 +176,15 @@ final class RecordingEngine {
         return runtimeErrorMessage
     }
 
-    func prepareQuickRecorderContext() async {
+    func prepareQuickRecorderContext(shouldRefreshScreenSources: Bool) async {
         guard state == .idle else { return }
-        await availableSources.refresh()
+        if shouldRefreshScreenSources {
+            await availableSources.refresh()
+        } else if settings.mode.includesScreen {
+            // Avoid stale display/window lists when screen permission is unavailable.
+            availableSources.displays = []
+            availableSources.windows = []
+        }
         syncCameraPreviewForCurrentSettings()
     }
 

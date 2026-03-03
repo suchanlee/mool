@@ -350,7 +350,13 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         quickPreviewTask = Task { [weak self] in
             guard let self else { return }
             guard !Task.isCancelled, quickRecorderPopover.isShown else { return }
-            await recordingEngine.prepareQuickRecorderContext()
+            await permissionManager.refresh()
+            let shouldRefreshScreenSources =
+                recordingEngine.settings.mode.includesScreen &&
+                permissionManager.screenRecording == .granted
+            await recordingEngine.prepareQuickRecorderContext(
+                shouldRefreshScreenSources: shouldRefreshScreenSources
+            )
             guard !Task.isCancelled, quickRecorderPopover.isShown else { return }
             windowCoordinator.refreshQuickPreviewBubble()
         }

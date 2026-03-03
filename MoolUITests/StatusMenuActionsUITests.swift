@@ -85,6 +85,10 @@ final class StatusMenuActionsUITests: XCTestCase {
             waitForElementLabel(startButton, equals: "Record (need permission)"),
             "Unexpected quick recorder button label: \(startButton.label)"
         )
+        XCTAssertFalse(
+            waitForTraceEntry("requestScreenRecording", in: permissionTraceURL, timeout: 1),
+            "Screen permission should not be requested when opening the popover"
+        )
         click(startButton)
 
         XCTAssertTrue(
@@ -122,6 +126,10 @@ final class StatusMenuActionsUITests: XCTestCase {
         XCTAssertTrue(
             waitForElementLabel(startButton, equals: "Record"),
             "Unexpected quick recorder button label: \(startButton.label)"
+        )
+        XCTAssertFalse(
+            waitForTraceEntry("requestScreenRecording", in: permissionTraceURL, timeout: 1),
+            "Screen permission should not be requested when opening the popover"
         )
         click(startButton)
 
