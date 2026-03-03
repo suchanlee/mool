@@ -35,7 +35,7 @@ struct PermissionsView: View {
                     title: "Screen Recording",
                     description: "Required to capture your screen.",
                     status: permissionManager.screenRecording,
-                    action: { permissionManager.requestScreenRecording() }
+                    action: { Task { await permissionManager.requestScreenRecording() } }
                 )
 
                 PermissionRow(
@@ -45,11 +45,10 @@ struct PermissionsView: View {
                     status: permissionManager.camera,
                     action: {
                         Task {
-                            permissionManager.checkCamera()
                             if permissionManager.camera == .denied {
                                 permissionManager.openCameraSettings()
                             } else {
-                                _ = await permissionManager.ensureCameraPermission(openSettingsOnDeny: true)
+                                await permissionManager.requestCamera()
                             }
                         }
                     }
@@ -62,11 +61,10 @@ struct PermissionsView: View {
                     status: permissionManager.microphone,
                     action: {
                         Task {
-                            permissionManager.checkMicrophone()
                             if permissionManager.microphone == .denied {
                                 permissionManager.openMicrophoneSettings()
                             } else {
-                                _ = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: true)
+                                await permissionManager.requestMicrophone()
                             }
                         }
                     }
@@ -107,11 +105,11 @@ struct PermissionsView: View {
         }
         .frame(width: 500, height: 560)
         .task {
-            await permissionManager.checkAllPermissions()
+            await permissionManager.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task {
-                await permissionManager.checkAllPermissions()
+                await permissionManager.refresh()
             }
         }
     }

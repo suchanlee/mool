@@ -37,6 +37,9 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     entitlements:
       path: Mool/Resources/Mool.entitlements
+      properties:
+        com.apple.security.device.camera: true
+        com.apple.security.device.microphone: true
     info:
       path: Mool/Resources/Info.plist
       properties:
