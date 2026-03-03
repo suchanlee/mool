@@ -19,8 +19,6 @@ struct QuickRecorderPopoverView: View {
     @State private var captureTab: QuickCaptureTab = .display
     @State private var cameras: [AVCaptureDevice] = []
     @State private var microphones: [AVCaptureDevice] = []
-    @State private var pendingCameraEnableAfterPermission = false
-    @State private var pendingMicrophoneEnableAfterPermission = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -39,8 +37,7 @@ struct QuickRecorderPopoverView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { @MainActor in
-                await permissionManager.checkAllPermissions()
-                await applyPendingPermissionTogglesIfNeeded()
+                await permissionManager.refresh()
                 refreshInputDevices()
             }
         }
@@ -135,22 +132,27 @@ struct QuickRecorderPopoverView: View {
             TogglePill(isOn: engine.settings.mode.includesCamera) {
                 Task { @MainActor in
                     if engine.settings.mode.includesCamera {
-                        pendingCameraEnableAfterPermission = false
                         engine.setCameraEnabled(false)
                         onCameraVisibilityChanged()
                         refreshInputDevices()
                         return
                     }
 
-                    let granted = await permissionManager.ensureCameraPermission(openSettingsOnDeny: false)
-                    guard granted else {
-                        pendingCameraEnableAfterPermission = true
-                        return
+                    switch AVCaptureDevice.authorizationStatus(for: .video) {
+                    case .authorized:
+                        engine.setCameraEnabled(true)
+                        onCameraVisibilityChanged()
+                        refreshInputDevices()
+                    case .denied, .restricted:
+                        permissionManager.openCameraSettings()
+                    default:
+                        let granted = await permissionManager.requestCamera()
+                        if granted {
+                            engine.setCameraEnabled(true)
+                            onCameraVisibilityChanged()
+                            refreshInputDevices()
+                        }
                     }
-                    pendingCameraEnableAfterPermission = false
-                    engine.setCameraEnabled(true)
-                    onCameraVisibilityChanged()
-                    refreshInputDevices()
                 }
             }
             .padding(.trailing, 12)
@@ -190,20 +192,24 @@ struct QuickRecorderPopoverView: View {
             TogglePill(isOn: engine.settings.captureMicrophone) {
                 Task { @MainActor in
                     if engine.settings.captureMicrophone {
-                        pendingMicrophoneEnableAfterPermission = false
                         engine.settings.captureMicrophone = false
                         engine.settings.save()
                         return
                     }
 
-                    let granted = await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: false)
-                    guard granted else {
-                        pendingMicrophoneEnableAfterPermission = true
-                        return
+                    switch AVCaptureDevice.authorizationStatus(for: .audio) {
+                    case .authorized:
+                        engine.settings.captureMicrophone = true
+                        engine.settings.save()
+                    case .denied, .restricted:
+                        permissionManager.openMicrophoneSettings()
+                    default:
+                        let granted = await permissionManager.requestMicrophone()
+                        if granted {
+                            engine.settings.captureMicrophone = true
+                            engine.settings.save()
+                        }
                     }
-                    pendingMicrophoneEnableAfterPermission = false
-                    engine.settings.captureMicrophone = true
-                    engine.settings.save()
                 }
             }
             .padding(.trailing, 12)
@@ -246,6 +252,7 @@ struct QuickRecorderPopoverView: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("quickRecorder.startRecording")
         .padding(.top, 2)
     }
 
@@ -320,24 +327,6 @@ struct QuickRecorderPopoverView: View {
     private func refreshInputDevices() {
         cameras = engine.availableCameraDevices()
         microphones = engine.availableMicrophoneDevices()
-    }
-
-    private func applyPendingPermissionTogglesIfNeeded() async {
-        if pendingCameraEnableAfterPermission,
-           await permissionManager.ensureCameraPermission(openSettingsOnDeny: false)
-        {
-            pendingCameraEnableAfterPermission = false
-            engine.setCameraEnabled(true)
-            onCameraVisibilityChanged()
-        }
-
-        if pendingMicrophoneEnableAfterPermission,
-           await permissionManager.ensureMicrophonePermission(openSettingsOnDeny: false)
-        {
-            pendingMicrophoneEnableAfterPermission = false
-            engine.settings.captureMicrophone = true
-            engine.settings.save()
-        }
     }
 }
 

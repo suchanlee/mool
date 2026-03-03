@@ -42,6 +42,8 @@ final class RecordingEngine {
     private let audioManager: any AudioManaging
     @ObservationIgnored private nonisolated(unsafe) var videoWriter: VideoWriter?
     private unowned let storageManager: StorageManager
+    private let recordingTestMode = ProcessInfo.processInfo.environment["MOOL_RECORDING_TEST_MODE"]
+    private let recordingTracePath = ProcessInfo.processInfo.environment["MOOL_RECORDING_TRACE_PATH"]
 
     // MARK: - Timers
 
@@ -68,6 +70,13 @@ final class RecordingEngine {
 
     func startRecording() async throws {
         guard state == .idle else { return }
+
+        if recordingTestMode == "stub_success" {
+            state = .recording
+            traceRecording("startRecordingStubSuccess")
+            return
+        }
+
         runtimeErrorMessage = nil
         do {
             // Refresh available sources
@@ -287,17 +296,6 @@ final class RecordingEngine {
 
     private func beginCapture() async throws {
         if settings.mode.includesScreen {
-            if !CGPreflightScreenCaptureAccess() {
-                let granted = CGRequestScreenCaptureAccess()
-                guard granted else {
-                    throw ScreenCaptureError.permissionDenied
-                }
-            }
-
-            guard CGPreflightScreenCaptureAccess() else {
-                throw ScreenCaptureError.permissionDenied
-            }
-
             let hasSelectedWindow = settings.selectedWindowID != nil &&
                 availableSources.windows.contains(where: { $0.windowID == settings.selectedWindowID })
             let hasDisplay = !availableSources.displays.isEmpty
@@ -487,6 +485,30 @@ final class RecordingEngine {
         default:
             throw RecordingEngineError.microphonePermissionDenied
         }
+    }
+
+    private func traceRecording(_ message: String) {
+        guard let recordingTracePath, !recordingTracePath.isEmpty else { return }
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "\(timestamp) \(message)\n"
+        let url = URL(fileURLWithPath: recordingTracePath)
+        guard let data = line.data(using: .utf8) else { return }
+
+        if FileManager.default.fileExists(atPath: recordingTracePath),
+           let handle = try? FileHandle(forWritingTo: url)
+        {
+            do {
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+                try handle.close()
+                return
+            } catch {
+                try? data.write(to: url, options: .atomic)
+                return
+            }
+        }
+
+        try? data.write(to: url, options: .atomic)
     }
 }
 

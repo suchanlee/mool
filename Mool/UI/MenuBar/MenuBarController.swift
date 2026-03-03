@@ -17,6 +17,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private var globalPopoverClickMonitor: Any?
     private var localPopoverKeyMonitor: Any?
     private let menuActionTracePath = ProcessInfo.processInfo.environment["MOOL_STATUS_MENU_TRACE_PATH"]
+    private let suppressRecordingErrorAlerts = ProcessInfo.processInfo.environment["MOOL_SUPPRESS_RECORDING_ERROR_ALERTS"] == "1"
 
     private unowned let recordingEngine: RecordingEngine
     private unowned let windowCoordinator: WindowCoordinator
@@ -369,6 +370,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     }
 
     private func showError(_ error: Error) {
+        if suppressRecordingErrorAlerts {
+            traceMenuAction("showError suppressed \(error.localizedDescription)")
+            return
+        }
         let alert = NSAlert()
         alert.messageText = "Recording Failed"
         alert.informativeText = error.localizedDescription
@@ -378,6 +383,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
 
     private func ensureScreenRecordingPermissionIfNeeded() async -> Bool {
         guard recordingEngine.settings.mode.includesScreen else { return true }
+        await permissionManager.refresh()
         if permissionManager.screenRecording == .granted { return true }
         let granted = await permissionManager.requestScreenRecording()
         if !granted { permissionManager.openScreenRecordingSettings() }

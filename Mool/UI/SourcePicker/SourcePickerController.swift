@@ -88,6 +88,10 @@ final class SourcePickerController {
 
     private func ensureScreenRecordingPermissionIfNeeded() async -> Bool {
         guard engine.settings.mode.includesScreen else { return true }
-        return await permissionManager.ensureScreenRecordingPermission(openSettingsOnDeny: true)
+        await permissionManager.refresh()
+        if permissionManager.screenRecording == .granted { return true }
+        let granted = await permissionManager.requestScreenRecording()
+        if !granted { permissionManager.openScreenRecordingSettings() }
+        return granted
     }
 }

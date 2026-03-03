@@ -146,6 +146,12 @@ User clicks menu bar status item
 If capture setup fails after countdown, `RecordingEngine` rolls back partial startup
 (stop capture sessions, cancel writer, reset state to `.idle`) and UI controllers hide overlays.
 
+Screen-permission gating happens before `RecordingEngine.startRecording()` in
+`MenuBarController` and `SourcePickerController`:
+- refresh current permission state
+- request screen permission when needed
+- open System Settings when denied
+
 After a successful recording stops, the menu bar controller opens the Library window automatically.
 Status-menu `Open Library` / `Settings…` actions are handled through explicit AppDelegate window presenters so menu item dispatch does not depend on responder-chain selectors.
 
@@ -268,4 +274,8 @@ All state is published via `@Observable` so SwiftUI views and overlay panels upd
   - `MoolUITests` (`bundle.ui-testing`)
 - Capture manager protocols (`ScreenCaptureManaging`, `CameraManaging`, `AudioManaging`) provide DI seams so `RecordingEngine` can be tested with fakes.
 - UI tests rely on explicit accessibility identifiers on critical controls (HUD actions and source picker mode/record controls).
+- UI tests include deterministic test-only hooks for quick-recorder Start permission behavior:
+  - `MOOL_TEST_SCREEN_PERMISSION` (`granted` / `denied`)
+  - `MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN`
+  - trace files via `MOOL_PERMISSION_TRACE_PATH` and `MOOL_RECORDING_TRACE_PATH`
 - For local/dev testing, test targets disable code-signing and hardened runtime in `project.yml` to avoid Team ID mismatch when loading the UI test bundle.

@@ -138,6 +138,8 @@ AppDelegate
    - Right click: `MenuBarController` opens context menu with actions.
      - `Open Library` / `Settings…` are routed to explicit AppDelegate window presenters (instead of responder-chain selectors) for deterministic behavior from status-menu context.
 3. User starts recording from quick recorder or source picker.
+   - The entry controller (`MenuBarController` / `SourcePickerController`) refreshes `PermissionManager` first.
+   - If screen capture is enabled and permission is not granted, it requests screen permission and opens System Settings when denied.
 4. `RecordingEngine.startRecording()`:
    - Refreshes `availableSources` (SCShareableContent enumeration; window list is filtered to app-owned top-level windows)
    - Preflights AV permissions before countdown:
@@ -145,7 +147,6 @@ AppDelegate
      - Microphone permission is requested when microphone capture is enabled.
    - Runs countdown (if `countdownDuration > 0`)
    - Calls `beginCapture()`:
-     - Requests Screen Recording permission for screen-including modes
      - Creates `VideoWriter` with source dimensions aligned to `SCStream` resolution (`contentRect * 2`) → calls `writer.setup()`
      - Configures + starts `ScreenCaptureManager` (display or window)
      - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
@@ -292,6 +293,9 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown on each c
   - Fake capture managers for unit tests
   - Unit test suites for settings/models/annotation/storage/engine state
   - XCUITest suites for launch/library/settings/source-picker flows
+  - `StatusMenuActionsUITests` covers:
+    - right-click status-menu actions (`Open Library`, `Settings…`)
+    - quick-recorder Start denied/granted screen-permission behavior via deterministic test-only env overrides
 
 ### Known gaps / next priorities
 1. **Camera resume gap** — On `resumeRecording()`, the camera `AVCaptureSession` is restarted. There's typically a ~300ms startup delay before the first frames arrive. During this window, the VideoWriter composites with a stale `latestCameraBuffer`. This is visually fine but the PiP may freeze briefly.

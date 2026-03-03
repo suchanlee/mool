@@ -1,6 +1,14 @@
 import XCTest
 
 extension XCTestCase {
+    private func leftClickStatusItem(_ statusItem: XCUIElement) {
+        if statusItem.isHittable {
+            statusItem.click()
+        } else {
+            statusItem.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
+    }
+
     private func rightClickStatusItem(_ statusItem: XCUIElement) {
         if statusItem.isHittable {
             statusItem.rightClick()
@@ -32,6 +40,44 @@ extension XCTestCase {
 
         XCTFail("Failed to open status item menu", file: file, line: line)
         return statusItem
+    }
+
+    /// Opens the app's quick recorder popover with retries and returns the start button.
+    func openQuickRecorderPopover(
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let statusItem = app.statusItems["Mool"].firstMatch
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5), "Status item not found", file: file, line: line)
+
+        let startButton = app.buttons["quickRecorder.startRecording"].firstMatch
+        for _ in 0 ..< 5 {
+            leftClickStatusItem(statusItem)
+            if startButton.waitForExistence(timeout: 0.8) {
+                return startButton
+            }
+
+            app.typeKey(.escape, modifierFlags: [])
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        }
+
+        XCTFail("Failed to open quick recorder popover", file: file, line: line)
+        return startButton
+    }
+
+    func clickQuickRecorderStart(
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let startButton = openQuickRecorderPopover(in: app, file: file, line: line)
+        XCTAssertTrue(startButton.waitForExistence(timeout: 2), "Quick recorder start button not found", file: file, line: line)
+        if startButton.isHittable {
+            startButton.click()
+        } else {
+            startButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
     }
 
     func statusMenuItem(

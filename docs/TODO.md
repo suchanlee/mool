@@ -152,6 +152,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Auto-apply pending quick-recorder camera/mic toggle intents when returning from System Settings after granting permissions
 - [x] Prevent repeated camera/microphone System Settings auto-launches from quick toggles once permission state is already denied
 - [x] Fix status-item right-click menu actions (`Open Library`, `Settings…`) by deferring window open until menu tracking ends and adding selector fallbacks
+- [x] Refresh screen-permission state immediately on start actions (quick recorder + source picker) before deciding whether to open System Settings
 
 ---
 
@@ -167,6 +168,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Fix UI test bundle signing mismatch in local/dev builds (disable test target signing + hardened runtime)
 - [~] Stabilize flaky XCUITests (status item hit-testing and ambiguous `Settings…` menu item query)
 - [x] Add deterministic right-click status-menu UI test coverage for `Open Library` and `Settings…`
+- [x] Add deterministic quick-recorder Start permission UI tests for denied/granted screen-recording flows (with test-only permission/recording hooks)
 
 ---
 
