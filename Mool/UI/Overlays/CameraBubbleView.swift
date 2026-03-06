@@ -4,14 +4,9 @@ import SwiftUI
 
 // MARK: - Camera Bubble View
 
-/// Circular camera preview with drag support.
+/// Circular camera preview rendered inside the floating bubble window.
 struct CameraBubbleView: View {
     let cameraManager: any CameraManaging
-    let onMoveBegan: (_ mouseLocationInScreen: NSPoint) -> Void
-    let onMoveChanged: (_ mouseLocationInScreen: NSPoint) -> Void
-    let onMoveEnded: () -> Void
-
-    @State private var hasStartedMoveDrag = false
 
     var body: some View {
         ZStack {
@@ -24,23 +19,9 @@ struct CameraBubbleView: View {
                 .allowsHitTesting(false)
         }
         .contentShape(Circle())
-        .highPriorityGesture(moveGesture)
-    }
-
-    private var moveGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                let mouse = NSEvent.mouseLocation
-                if !hasStartedMoveDrag {
-                    hasStartedMoveDrag = true
-                    onMoveBegan(mouse)
-                }
-                onMoveChanged(mouse)
-            }
-            .onEnded { _ in
-                hasStartedMoveDrag = false
-                onMoveEnded()
-            }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Camera Bubble")
+        .accessibilityIdentifier("cameraBubble.view")
     }
 }
 

@@ -80,7 +80,7 @@ Mool/
 │   │   ├── ControlPanelWindow.swift    NSPanel (floating, non-activating)
 │   │   ├── ControlPanelView.swift      SwiftUI HUD: record/pause/stop/timer
 │   │   ├── CameraBubbleWindow.swift    Borderless NSPanel, draggable
-│   │   ├── CameraBubbleView.swift      SwiftUI cam preview with drag gesture
+│   │   ├── CameraBubbleView.swift      SwiftUI cam preview hosted inside AppKit first-click handling
 │   │   ├── AnnotationOverlayWindow.swift  Full-screen NSWindow, drawing layer
 │   │   ├── SpeakerNotesWindow.swift    Floating notes NSPanel
 │   │   └── CountdownOverlayWindow.swift Full-screen countdown splash
@@ -185,7 +185,7 @@ All overlay windows share these properties:
 | Window | Type | Interaction |
 |---|---|---|
 | ControlPanelWindow | NSPanel, `.nonactivatingPanel` | In camera mode, anchored below camera bubble and shown only while hovering bubble/HUD via scoped mouse-event monitors; hidden while actively dragging bubble; otherwise shown as standalone HUD |
-| CameraBubbleWindow | NSPanel, borderless | Draggable via explicit SwiftUI gesture updates; size is controlled by HUD presets (Small/Medium/Large); uses circular-only shadow (no square panel shadow artifact) |
+| CameraBubbleWindow | NSPanel, borderless | Draggable via AppKit mouse events on the panel, with a custom hosting view enabling first-click delivery; size is controlled by HUD presets (Small/Medium/Large); uses circular-only shadow (no square panel shadow artifact) |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |
 | CountdownOverlayWindow | NSWindow, borderless | Full-screen dim + large pre-roll countdown number |

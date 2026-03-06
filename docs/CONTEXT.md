@@ -78,7 +78,7 @@ mool/
         │   ├── ControlPanelWindow.swift    NSPanel (.nonactivatingPanel) — never steals focus
         │   ├── ControlPanelView.swift      HUD: rec indicator, timer, pause/stop, annotation toolbar
         │   ├── CameraBubbleWindow.swift    Borderless NSPanel; draggable
-        │   ├── CameraBubbleView.swift      Circular cam preview + screen-space anchored move gesture
+        │   ├── CameraBubbleView.swift      Circular cam preview hosted inside an AppKit first-click-friendly panel
         │   ├── AnnotationOverlayWindow.swift  Full-screen transparent NSWindow for drawing
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
@@ -260,7 +260,7 @@ The **AnnotationOverlayWindow** starts with `ignoresMouseEvents = true` (pass-th
 
 The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its buttons never steals focus from the app being recorded.
 In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD using scoped mouse-event monitors; while actively dragging the bubble, the HUD is temporarily hidden.
-The **CameraBubbleWindow** move behavior is handled by screen-space anchored gestures in `CameraBubbleView` that update the panel frame directly (1:1 drag feel, reduced jitter, visible-frame clamping). Bubble size is set via HUD presets (Small/Medium/Large), and the panel-level square shadow is disabled in favor of circular content shadow styling.
+The **CameraBubbleWindow** move behavior is handled by AppKit mouse events on the panel itself, while a custom `NSHostingView` only ensures first-click delivery. The panel updates its frame directly in screen space (1:1 drag feel, reduced jitter, reliable first-drag pickup, visible-frame clamping). Bubble size is set via HUD presets (Small/Medium/Large), and the panel-level square shadow is disabled in favor of circular content shadow styling.
 
 The **CountdownOverlayWindow** is borderless, click-through, and shown on each connected display while `RecordingEngine.state` is `.countdown`.
 
