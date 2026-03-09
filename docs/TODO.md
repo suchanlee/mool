@@ -154,6 +154,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Fix status-item right-click menu actions (`Open Library`, `Settings…`) by deferring window open until menu tracking ends and adding selector fallbacks
 - [x] Refresh screen-permission state immediately on start actions (quick recorder + source picker) before deciding whether to open System Settings
 - [x] Fix camera bubble so the first drag attempt moves immediately instead of requiring a second try
+- [x] Fix quick-recorder microphone/camera toggles to attempt inline AV prompts before falling back to System Settings
 
 ---
 
@@ -171,6 +172,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add deterministic right-click status-menu UI test coverage for `Open Library` and `Settings…`
 - [x] Add deterministic quick-recorder Start permission UI tests for denied/granted screen-recording flows (with test-only permission/recording hooks)
 - [x] Add regression coverage for consecutive single-attempt camera bubble drags
+- [x] Add unit coverage for quick-recorder AV toggle permission fallback policy
 
 ---
 

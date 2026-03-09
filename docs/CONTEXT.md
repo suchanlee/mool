@@ -131,6 +131,7 @@ AppDelegate
      - On popover open, `MenuBarController` shows the quick preview bubble shell immediately.
      - It prepares quick-recorder context and refreshes `CameraBubbleWindow` once ready.
      - Camera/microphone permissions are requested only when their toggles are turned ON.
+     - Quick-recorder camera/microphone toggles always attempt the inline AV permission request first; System Settings is only opened as a fallback when the permission was already denied before that click.
      - Quick-recorder controls are disabled while recording/paused to avoid mutating next-session settings mid-capture.
      - Popover behavior is app-defined so interacting with the camera bubble (move) does not auto-dismiss it.
      - Local/global click monitoring closes the popover on true outside clicks while preserving clicks on status-item, popover content, and camera bubble.

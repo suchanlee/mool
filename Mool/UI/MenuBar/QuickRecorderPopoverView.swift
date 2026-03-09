@@ -9,6 +9,19 @@ private enum QuickCaptureTab: String, CaseIterable {
     case window = "Window"
 }
 
+enum QuickTogglePermissionResolution: Equatable {
+    case enable
+    case keepDisabled
+    case openSettings
+
+    static func resolve(previousStatus: PermissionStatus, granted: Bool) -> Self {
+        if granted {
+            return .enable
+        }
+        return previousStatus == .denied ? .openSettings : .keepDisabled
+    }
+}
+
 struct QuickRecorderPopoverView: View {
     @Environment(RecordingEngine.self) private var engine
     @Environment(PermissionManager.self) private var permissionManager
@@ -140,20 +153,19 @@ struct QuickRecorderPopoverView: View {
                     }
 
                     await permissionManager.refresh()
-                    switch permissionManager.camera {
-                    case .granted:
+                    let resolution = await QuickTogglePermissionResolution.resolve(
+                        previousStatus: permissionManager.camera,
+                        granted: permissionManager.requestCamera()
+                    )
+                    switch resolution {
+                    case .enable:
                         engine.setCameraEnabled(true)
                         onCameraVisibilityChanged()
                         refreshInputDevices()
-                    case .denied:
+                    case .openSettings:
                         permissionManager.openCameraSettings()
-                    case .notDetermined:
-                        let granted = await permissionManager.requestCamera()
-                        if granted {
-                            engine.setCameraEnabled(true)
-                            onCameraVisibilityChanged()
-                            refreshInputDevices()
-                        }
+                    case .keepDisabled:
+                        break
                     }
                 }
             }
@@ -201,18 +213,18 @@ struct QuickRecorderPopoverView: View {
                     }
 
                     await permissionManager.refresh()
-                    switch permissionManager.microphone {
-                    case .granted:
+                    let resolution = await QuickTogglePermissionResolution.resolve(
+                        previousStatus: permissionManager.microphone,
+                        granted: permissionManager.requestMicrophone()
+                    )
+                    switch resolution {
+                    case .enable:
                         engine.settings.captureMicrophone = true
                         engine.settings.save()
-                    case .denied:
+                    case .openSettings:
                         permissionManager.openMicrophoneSettings()
-                    case .notDetermined:
-                        let granted = await permissionManager.requestMicrophone()
-                        if granted {
-                            engine.settings.captureMicrophone = true
-                            engine.settings.save()
-                        }
+                    case .keepDisabled:
+                        break
                     }
                 }
             }
