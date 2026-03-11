@@ -24,6 +24,8 @@ targets:
         excludes:
           - "Resources/Info.plist"
           - "Resources/Mool.entitlements"
+    dependencies:
+      - sdk: AVKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mool.app

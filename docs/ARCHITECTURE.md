@@ -14,7 +14,7 @@ Mool is a local-only macOS screen recording app inspired by Loom. All recordings
 | Camera / mic | AVFoundation (AVCaptureSession) |
 | Video encoding | AVAssetWriter (H.264 video, AAC audio) |
 | Reactive state | @Observable (Observation framework) |
-| Build system | xcodegen → Xcode project; `scripts/build-dmg.sh` for manual DMG packaging and mounted-volume branding |
+| Build system | xcodegen → Xcode project; `scripts/build-dmg.sh` for manual DMG packaging and mounted-volume branding; app target explicitly links `AVKit.framework` for Library playback |
 | Minimum deployment | macOS 14.0 (required for `@Observable`) |
 
 ---
@@ -229,6 +229,7 @@ File naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov` (auto-suffixed with `_1`, `_2`, ... 
 - Total disk usage computation
 
 Library playback behavior:
+- The app target must link `AVKit.framework`; `LibraryView` uses SwiftUI `VideoPlayer`, and packaged builds will abort at selection time if `AVKit` is missing.
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
 - Edit mode overlays a timeline strip with thumbnail rail and draggable in/out handles; drag input is handled by a single high-priority timeline gesture that resolves start/end handle ownership at drag begin for stable mouse interaction.
 - Save in Edit mode writes a new edited recording (trimmed and speed-adjusted), preserving the original file.

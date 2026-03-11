@@ -27,6 +27,7 @@ xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' bu
 - Deployment target: **macOS 14.0** (required for `@Observable` macro)
 - DMG packaging helper: `./scripts/build-dmg.sh` (manual release step; not part of pre-commit; derives the mounted volume icon from the app icon set)
 - The app icon comes from `Mool/Resources/Assets.xcassets/AppIcon.appiconset`; if `project.yml` changes around resources, regenerate `Mool.xcodeproj` and confirm the built app emits `Contents/Resources/AppIcon.icns` and `Assets.car`.
+- Library playback depends on `AVKit.framework` being linked by the app target; if `project.yml` changes around target dependencies, regenerate `Mool.xcodeproj` and confirm the built app binary links `AVKit`.
 
 ---
 
@@ -84,7 +85,7 @@ mool/
         │   ├── SpeakerNotesWindow.swift    Floating notes panel (@AppStorage persisted)
         │   └── CountdownOverlayWindow.swift Full-screen pre-roll countdown splash
         ├── Library/
-        │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with Edit mode (timeline trim + playback speed) and edited-export save flow
+        │   └── LibraryView.swift       NavigationSplitView; AVKit `VideoPlayer` preview with Edit mode (timeline trim + playback speed) and edited-export save flow
         ├── Settings/
         │   └── SettingsView.swift      TabView: Recording, Storage, About (bundle icon + version metadata)
         └── Onboarding/
