@@ -155,6 +155,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Refresh screen-permission state immediately on start actions (quick recorder + source picker) before deciding whether to open System Settings
 - [x] Fix camera bubble so the first drag attempt moves immediately instead of requiring a second try
 - [x] Fix quick-recorder microphone/camera toggles to attempt inline AV prompts before falling back to System Settings
+- [x] Switch microphone permission checks to `AVAudioApplication` so installed builds use the dedicated record-permission API
+- [x] Fix unsigned DMG packaging to disable hardened runtime and preserve entitlements on signed re-signs
 
 ---
 
@@ -173,6 +175,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add deterministic quick-recorder Start permission UI tests for denied/granted screen-recording flows (with test-only permission/recording hooks)
 - [x] Add regression coverage for consecutive single-attempt camera bubble drags
 - [x] Add unit coverage for quick-recorder AV toggle permission fallback policy
+- [ ] Add deterministic coverage for microphone permission status/request bridging without relying on live TCC prompts
 
 ---
 

@@ -210,7 +210,7 @@ All overlay windows share these properties:
 |---|---|---|
 | Screen Recording | SCStream access | `CGPreflightScreenCaptureAccess` + `CGRequestScreenCaptureAccess` |
 | Camera | Camera preview and capture | `AVCaptureDevice.requestAccess(for: .video)` |
-| Microphone | Mic audio track | `AVCaptureDevice.requestAccess(for: .audio)` |
+| Microphone | Mic audio track | `AVAudioApplication.requestRecordPermissionWithCompletionHandler` |
 | Accessibility | CGEvent tap for cursor tracking | `AXIsProcessTrustedWithOptions` |
 
 ---

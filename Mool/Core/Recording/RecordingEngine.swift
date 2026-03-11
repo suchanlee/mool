@@ -1,3 +1,4 @@
+import AVFAudio
 import AVFoundation
 import Combine
 import CoreGraphics
@@ -482,13 +483,19 @@ final class RecordingEngine {
     private func ensureMicrophonePermissionIfNeeded() async throws {
         guard settings.captureMicrophone else { return }
 
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
             return
-        case .notDetermined:
-            let granted = await AVCaptureDevice.requestAccess(for: .audio)
+        case .undetermined:
+            let granted = await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
             guard granted else { throw RecordingEngineError.microphonePermissionDenied }
-        default:
+        case .denied:
+            throw RecordingEngineError.microphonePermissionDenied
+        @unknown default:
             throw RecordingEngineError.microphonePermissionDenied
         }
     }

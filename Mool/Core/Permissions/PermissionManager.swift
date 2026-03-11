@@ -1,4 +1,5 @@
 import AppKit
+import AVFAudio
 import AVFoundation
 import CoreGraphics
 import ScreenCaptureKit
@@ -105,11 +106,7 @@ final class PermissionManager {
             return
         }
 
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized: microphone = .granted
-        case .notDetermined: microphone = .notDetermined
-        default: microphone = .denied
-        }
+        microphone = microphonePermissionStatus(from: AVAudioApplication.shared.recordPermission)
         tracePermission("refreshMicrophone status=\(statusDescription(microphone))")
     }
 
@@ -168,8 +165,15 @@ final class PermissionManager {
             return microphone == .granted
         }
 
-        let granted = await AVCaptureDevice.requestAccess(for: .audio)
-        microphone = granted ? .granted : .denied
+        let granted = await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+        microphone = microphonePermissionStatus(from: AVAudioApplication.shared.recordPermission)
+        if microphone == .notDetermined {
+            microphone = granted ? .granted : .denied
+        }
         tracePermission("requestMicrophone result=\(statusDescription(microphone))")
         return granted
     }
@@ -219,6 +223,19 @@ final class PermissionManager {
         case .notDetermined: "notDetermined"
         case .granted: "granted"
         case .denied: "denied"
+        }
+    }
+
+    private func microphonePermissionStatus(from recordPermission: AVAudioApplication.recordPermission) -> PermissionStatus {
+        switch recordPermission {
+        case .granted:
+            .granted
+        case .undetermined:
+            .notDetermined
+        case .denied:
+            .denied
+        @unknown default:
+            .denied
         }
     }
 

@@ -193,7 +193,18 @@ if [[ -z "$app_path" ]]; then
 
   if [[ "$skip_build" == false ]]; then
     echo "==> Building app ($scheme, $configuration)"
-    xcodebuild -project "$project" -scheme "$scheme" -configuration "$configuration" -destination 'platform=macOS' -derivedDataPath "$derived_data_path" build
+    xcodebuild_args=(
+      -project "$project"
+      -scheme "$scheme"
+      -configuration "$configuration"
+      -destination 'platform=macOS'
+      -derivedDataPath "$derived_data_path"
+    )
+    if [[ -z "$sign_identity" ]]; then
+      echo "==> Disabling hardened runtime for unsigned local DMG build"
+      xcodebuild_args+=(ENABLE_HARDENED_RUNTIME=NO)
+    fi
+    xcodebuild "${xcodebuild_args[@]}" build
   fi
 
   app_path="$derived_data_path/Build/Products/$configuration/$scheme.app"
@@ -206,7 +217,7 @@ fi
 
 if [[ -n "$sign_identity" ]]; then
   echo "==> Signing app bundle"
-  codesign --force --deep --options runtime --timestamp --sign "$sign_identity" "$app_path"
+  codesign --force --deep --options runtime --timestamp --entitlements Mool/Resources/Mool.entitlements --sign "$sign_identity" "$app_path"
 fi
 
 echo "==> Preparing DMG payload"

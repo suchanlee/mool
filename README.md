@@ -78,6 +78,7 @@ For a local DMG:
 ```
 
 This builds a Release app and creates `build/Mool.dmg`.
+When no `--sign-identity` is provided, the script disables hardened runtime so the local-only DMG behaves like the working Xcode-launched build on other Macs.
 
 For signed + notarized DMG:
 
@@ -87,6 +88,8 @@ For signed + notarized DMG:
   --notarize \
   --keychain-profile "AC_NOTARY"
 ```
+
+Use the signed/notarized path for real distribution. The unsigned DMG path is only for local transfer/testing.
 
 ---
 

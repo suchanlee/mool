@@ -225,7 +225,7 @@ All `@Observable` classes — **do not mix with `ObservableObject`**.
 |---|---|---|
 | Screen Recording | `CGPreflightScreenCaptureAccess` + `CGRequestScreenCaptureAccess` | Yes |
 | Camera | `AVCaptureDevice.requestAccess(for: .video)` | Yes |
-| Microphone | `AVCaptureDevice.requestAccess(for: .audio)` | Yes |
+| Microphone | `AVAudioApplication.requestRecordPermissionWithCompletionHandler` | Yes |
 | Accessibility | `AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": false])` | Optional (cursor effects) |
 
 Note: use the raw string `"AXTrustedCheckOptionPrompt"` — using the `kAXTrustedCheckOptionPrompt` CFString constant triggers a Swift 6 concurrency warning about shared mutable state.
