@@ -6,6 +6,7 @@ import SwiftUI
 /// Manages the NSStatusItem (menu bar icon) and associated menu/popover.
 @MainActor
 final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
+    private let statusIconSize = NSSize(width: 18, height: 18)
     private var statusItem: NSStatusItem?
     private var statusBarMenu: NSMenu?
     private let quickRecorderPopover = NSPopover()
@@ -53,8 +54,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         statusItem = item
 
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Mool")
-            button.image?.isTemplate = true
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+            button.toolTip = "Mool"
             button.action = #selector(statusBarButtonClicked)
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -164,17 +166,20 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
 
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
-        switch recordingEngine.state {
-        case .recording:
-            button.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
-            button.image?.isTemplate = false
-            if let img = button.image {
-                button.image = img.tinted(with: .systemRed)
-            }
-        default:
-            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Mool")
-            button.image?.isTemplate = true
-        }
+        let isRecording = recordingEngine.state == .recording
+        button.image = makeStatusIcon(isRecording: isRecording)
+        button.image?.isTemplate = false
+        button.toolTip = isRecording ? "Mool - Recording" : "Mool"
+    }
+
+    private func makeStatusIcon(isRecording: Bool) -> NSImage? {
+        let baseIcon = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath).resized(to: statusIconSize)
+        guard isRecording else { return baseIcon }
+        return baseIcon.badged(
+            fillColor: .systemRed,
+            strokeColor: .white,
+            diameterRatio: 0.36
+        )
     }
 
     // MARK: - Actions
@@ -486,15 +491,36 @@ final class MenuBarController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     }
 }
 
-// MARK: - NSImage tinting
+// MARK: - NSImage helpers
 
 extension NSImage {
-    func tinted(with color: NSColor) -> NSImage {
-        guard let image = copy() as? NSImage else { return self }
-        image.lockFocus()
-        color.set()
-        NSRect(origin: .zero, size: image.size).fill(using: .sourceAtop)
-        image.unlockFocus()
-        return image
+    func resized(to size: NSSize) -> NSImage {
+        NSImage(size: size, flipped: false) { _ in
+            self.draw(in: NSRect(origin: .zero, size: size))
+            return true
+        }
+    }
+
+    func badged(fillColor: NSColor, strokeColor: NSColor, diameterRatio: CGFloat) -> NSImage {
+        let badgeDiameter = min(size.width, size.height) * diameterRatio
+        let badgeRect = NSRect(
+            x: size.width - badgeDiameter - 1,
+            y: 1,
+            width: badgeDiameter,
+            height: badgeDiameter
+        )
+
+        return NSImage(size: size, flipped: false) { _ in
+            self.draw(at: .zero, from: NSRect(origin: .zero, size: self.size), operation: .sourceOver, fraction: 1)
+
+            let strokePath = NSBezierPath(ovalIn: badgeRect.insetBy(dx: -0.8, dy: -0.8))
+            strokeColor.setFill()
+            strokePath.fill()
+
+            let badgePath = NSBezierPath(ovalIn: badgeRect)
+            fillColor.setFill()
+            badgePath.fill()
+            return true
+        }
     }
 }

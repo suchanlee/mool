@@ -139,18 +139,32 @@ struct StorageSettingsTab: View {
 // MARK: - About Tab
 
 struct AboutTab: View {
+    private var appIcon: NSImage {
+        NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
+    }
+
+    private var versionDescription: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        guard !build.isEmpty, build != version else {
+            return "Version \(version)"
+        }
+        return "Version \(version) (\(build))"
+    }
+
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "record.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.red)
+            Image(nsImage: appIcon)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 92, height: 92)
 
             Text("Mool")
                 .font(.largeTitle.bold())
             Text("Local Screen Recording")
                 .foregroundStyle(.secondary)
 
-            Text("Version 0.1.0")
+            Text(versionDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

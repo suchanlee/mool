@@ -1,21 +1,16 @@
 # Task Plan
 
-- [x] Compare the Xcode-launched app against the DMG-built app at the signing/build-configuration level.
-- [x] Verify the runtime microphone path uses the dedicated `AVAudioApplication` API.
-- [x] Fix the DMG script so unsigned local builds do not ship with hardened runtime and signed builds preserve entitlements when re-signing.
-- [x] Update docs and follow-up notes to reflect the packaging constraint.
-- [x] Record verification results and residual risk.
+- [x] Inspect the built app bundle and generated project to find why the app was still resolving the generic placeholder icon.
+- [x] Fix the project spec so `Assets.xcassets/AppIcon.appiconset` is actually bundled into the app and regenerate the project.
+- [x] Update About/menu bar icon lookup to follow the built app bundle icon, then keep the DMG branding flow on the same icon set.
+- [x] Rebuild the app and DMG, confirm the icon assets are present in the bundle, and record the result.
 
 ## Review
 
-- Root cause: there were two differences between the working Xcode launch and the failing DMG path. First, microphone permission was still using the wrong macOS API (`AVCaptureDevice` instead of `AVAudioApplication`). Second, `./scripts/build-dmg.sh` was producing an unsigned Release app with hardened runtime enabled, which diverged from the local build path the user confirmed worked.
-- Fix: use `AVAudioApplication.recordPermission` and `AVAudioApplication.requestRecordPermission` for microphone status/request/preflight, and make the DMG script disable hardened runtime when no signing identity is provided while preserving entitlements when a signed bundle is re-signed.
+- Root cause: `project.yml` excluded `Resources/Assets.xcassets` from the target file list, and the separate `resources:` stanza was not producing a resources build phase in the generated `.xcodeproj`. As a result, the built `.app` had no `Contents/Resources`, no `Assets.car`, and no `AppIcon.icns`, so both About and the menu bar fell back to the generic placeholder icon.
+- Fix: remove the asset-catalog exclusion from `project.yml`, exclude only `Info.plist` and `Mool.entitlements`, regenerate `Mool.xcodeproj`, and switch the app UI to read the icon from the built bundle path via `NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)`. The DMG flow still derives its volume icon from the same `AppIcon.appiconset`.
 - Verification:
-  - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' build`
-  - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' -only-testing:MoolTests test`
-  - [x] `./scripts/build-dmg.sh --skip-xcodegen --clean --derived-data build/DerivedData-dmg-verify --output-dir build/verify-dmg`
-  - [x] Verified packaged app signature at `build/verify-dmg/dmg-root/Mool.app`: ad hoc only (`flags=0x2`) and camera/microphone entitlements present.
-
-## Residual Risk
-
-- The remaining uncertainty is macOS TCC behavior on the other machine. Unit tests cannot force a real first-run microphone prompt, so the final proof is reinstalling the rebuilt DMG and toggling microphone once on that machine.
+  - [x] `xcodegen generate`
+  - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' -derivedDataPath build/DerivedData-icon-fix-clean build`
+  - [x] Verified the built app now contains `Contents/Resources/AppIcon.icns` and `Contents/Resources/Assets.car`, and `CFBundleIconName` in the built `Info.plist` is `AppIcon`.
+  - [x] `./scripts/build-dmg.sh --skip-xcodegen --clean --derived-data build/DerivedData-dmg-icon-fix-clean --output-dir build/icon-fix-dmg-clean`

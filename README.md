@@ -13,7 +13,7 @@ A local-only macOS screen recorder inspired by Loom. Record your screen, camera,
 - **Live annotations** — draw on screen during recording; cursor highlight, spotlight, and click burst effects
 - **Speaker notes** — floating notes panel visible only to you
 - **Local library** — browse, preview, rename, and delete recordings via AVPlayer
-- **Menu bar app** — lives in the menu bar; icon pulses red while recording
+- **Menu bar app** — lives in the menu bar; uses the Mool logo and adds a recording badge while recording
 
 ---
 
@@ -79,6 +79,7 @@ For a local DMG:
 
 This builds a Release app and creates `build/Mool.dmg`.
 When no `--sign-identity` is provided, the script disables hardened runtime so the local-only DMG behaves like the working Xcode-launched build on other Macs.
+The mounted DMG volume also reuses the Mool logo from the app icon set.
 
 For signed + notarized DMG:
 
@@ -114,7 +115,7 @@ On first launch, Mool shows an onboarding sheet that walks you through each perm
 
 ### Starting a recording
 
-1. Click the **Mool icon** in the menu bar (⏺ circle).
+1. Click the **Mool icon** in the menu bar.
 2. Click **Start Recording** — a source picker appears.
 3. Choose your recording mode and which display or window to capture.
 4. Click **Record**. After the countdown, recording begins and the floating HUD appears.

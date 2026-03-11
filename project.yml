@@ -22,9 +22,8 @@ targets:
     sources:
       - path: Mool
         excludes:
-          - "Resources/Assets.xcassets"
-    resources:
-      - path: Mool/Resources/Assets.xcassets
+          - "Resources/Info.plist"
+          - "Resources/Mool.entitlements"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mool.app

@@ -25,7 +25,8 @@ xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' bu
 - **Always run `xcodegen generate` after adding/removing/moving Swift files.** The `.xcodeproj` is derived from `project.yml` and picks up all `.swift` files under `Mool/` automatically.
 - Xcode 26.2 / Swift 6.2.3 / macOS 26.2 SDK
 - Deployment target: **macOS 14.0** (required for `@Observable` macro)
-- DMG packaging helper: `./scripts/build-dmg.sh` (manual release step; not part of pre-commit)
+- DMG packaging helper: `./scripts/build-dmg.sh` (manual release step; not part of pre-commit; derives the mounted volume icon from the app icon set)
+- The app icon comes from `Mool/Resources/Assets.xcassets/AppIcon.appiconset`; if `project.yml` changes around resources, regenerate `Mool.xcodeproj` and confirm the built app emits `Contents/Resources/AppIcon.icns` and `Assets.car`.
 
 ---
 
@@ -69,7 +70,7 @@ mool/
     └── UI/
         ├── WindowCoordinator.swift     Owns all overlay NSPanels
         ├── MenuBar/
-        │   ├── MenuBarController.swift NSStatusItem; left-click quick recorder, right-click context menu
+        │   ├── MenuBarController.swift NSStatusItem with branded logo + recording badge; left-click quick recorder, right-click context menu
         │   └── QuickRecorderPopoverView.swift  Loom-style rounded source/camera/audio quick controls with pill toggles (+ camera flip)
         ├── SourcePicker/
         │   ├── SourcePickerView.swift  Pre-recording SwiftUI sheet (mode/display/window/quality)
@@ -85,7 +86,7 @@ mool/
         ├── Library/
         │   └── LibraryView.swift       NavigationSplitView; AVPlayer preview with Edit mode (timeline trim + playback speed) and edited-export save flow
         ├── Settings/
-        │   └── SettingsView.swift      TabView: Recording, Storage, About
+        │   └── SettingsView.swift      TabView: Recording, Storage, About (bundle icon + version metadata)
         └── Onboarding/
             └── PermissionsView.swift   Step-by-step permission grant UI
 ```

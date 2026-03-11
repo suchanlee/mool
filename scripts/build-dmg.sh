@@ -42,6 +42,35 @@ require_tool() {
   fi
 }
 
+detach_mounted_dmg() {
+  if [[ -n "${mounted_dmg_path:-}" ]]; then
+    hdiutil detach "$mounted_dmg_path" -quiet >/dev/null 2>&1 || \
+      hdiutil detach "$mounted_dmg_path" -force -quiet >/dev/null 2>&1 || true
+    mounted_dmg_path=""
+  fi
+}
+
+cleanup() {
+  detach_mounted_dmg
+  if [[ -n "${temp_dir:-}" && -d "$temp_dir" ]]; then
+    rm -rf "$temp_dir"
+  fi
+}
+
+build_volume_icon() {
+  local icon_source_dir="Mool/Resources/Assets.xcassets/AppIcon.appiconset"
+  local iconset_dir="$temp_dir/MoolVolume.iconset"
+
+  if [[ ! -d "$icon_source_dir" ]]; then
+    echo "App icon set not found: $icon_source_dir" >&2
+    exit 1
+  fi
+
+  mkdir -p "$iconset_dir"
+  cp "$icon_source_dir"/icon_*.png "$iconset_dir/"
+  iconutil -c icns "$iconset_dir" -o "$volume_icon_icns_path"
+}
+
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
@@ -166,19 +195,23 @@ fi
 
 require_tool xcodebuild
 require_tool hdiutil
+require_tool iconutil
+require_tool xcrun
 
 if [[ "$skip_xcodegen" == false ]]; then
   require_tool xcodegen
 fi
 
-if [[ "$notarize" == true ]]; then
-  require_tool xcrun
-fi
-
 mkdir -p "$output_dir"
+
+temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/mool-dmg.XXXXXX")"
+trap cleanup EXIT
 
 dmg_root="$output_dir/dmg-root"
 dmg_path="$output_dir/$dmg_name.dmg"
+rw_dmg_path="$temp_dir/$dmg_name-rw.dmg"
+mounted_dmg_path="$temp_dir/$volume_name-mount"
+volume_icon_icns_path="$temp_dir/.VolumeIcon.icns"
 
 if [[ "$clean" == true ]]; then
   rm -rf "$dmg_root"
@@ -226,9 +259,19 @@ mkdir -p "$dmg_root"
 cp -R "$app_path" "$dmg_root/$scheme.app"
 ln -s /Applications "$dmg_root/Applications"
 
+echo "==> Generating volume icon"
+build_volume_icon
+
 echo "==> Creating DMG: $dmg_path"
-rm -f "$dmg_path"
-hdiutil create -volname "$volume_name" -srcfolder "$dmg_root" -ov -format UDZO "$dmg_path" >/dev/null
+rm -f "$dmg_path" "$rw_dmg_path"
+hdiutil create -volname "$volume_name" -srcfolder "$dmg_root" -ov -format UDRW -fs HFS+ "$rw_dmg_path" >/dev/null
+mkdir -p "$mounted_dmg_path"
+hdiutil attach "$rw_dmg_path" -mountpoint "$mounted_dmg_path" -nobrowse -noautoopen >/dev/null
+cp "$volume_icon_icns_path" "$mounted_dmg_path/.VolumeIcon.icns"
+xcrun SetFile -a C "$mounted_dmg_path"
+xcrun SetFile -a V "$mounted_dmg_path/.VolumeIcon.icns"
+detach_mounted_dmg
+hdiutil convert "$rw_dmg_path" -ov -format UDZO -o "$dmg_path" >/dev/null
 
 if [[ -n "$sign_identity" ]]; then
   echo "==> Signing DMG"
