@@ -66,7 +66,9 @@ final class AvailableSources {
             displays = content.displays
             let excludedBundleIDs: Set<String> = [
                 "com.apple.dock",
+                "com.apple.finder",
                 "com.apple.notificationcenterui",
+                "com.apple.systempreferences",
                 "com.apple.systemuiserver"
             ]
 
