@@ -289,6 +289,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown only over
 - Library view (AVPlayer preview, duration metadata, unified Edit mode with timeline strip/handles, trim + speed edited export, delete/rename/reveal actions)
   - Trim timeline uses a single high-priority drag gesture that resolves the active handle (start/end) at drag begin, then applies translation-based updates for stable dual-handle dragging.
   - `TrimTimelineStrip` must size its gesture host to the full geometry width before applying `offset`-positioned handles; SwiftUI offsets do not expand layout bounds, and the trailing handle becomes non-draggable if it renders outside the parent hit region.
+  - Edit mode also exposes a draggable playhead grip tied to the hairline indicator; dragging it pauses preview playback and seeks `AVPlayer` within the current trim range for timeline scrubbing.
 - Settings (Recording, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording
@@ -302,6 +303,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown only over
   - Fake capture managers for unit tests
   - Unit test suites for settings/models/annotation/storage/engine state
   - XCUITest suites for launch/library/settings/source-picker flows
+  - `MoolUITests` must keep local code signing enabled; disabling signing on recent macOS produces a Gatekeeper-blocked `MoolUITests-Runner.app` before XCTest can connect.
   - `StatusMenuActionsUITests` covers:
     - right-click status-menu actions (`Open Library`, `Settings…`)
     - quick-recorder Start denied/granted screen-permission behavior via deterministic test-only env overrides

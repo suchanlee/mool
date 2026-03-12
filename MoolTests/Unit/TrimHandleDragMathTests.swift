@@ -121,4 +121,56 @@ final class TrimHandleDragMathTests: XCTestCase {
 
         XCTAssertEqual(updated, 12, accuracy: 0.0001)
     }
+
+    func testPlayheadScrubTimeMapsLocationWithinTrack() {
+        let updated = TrimTimelineMath.scrubTime(
+            locationX: 160,
+            trackMinX: 10,
+            trackWidth: 300,
+            duration: 12,
+            minimumTime: 0,
+            maximumTime: 12
+        )
+
+        XCTAssertEqual(updated, 6, accuracy: 0.0001)
+    }
+
+    func testPlayheadScrubTimeClampsToTrimRange() {
+        let updated = TrimTimelineMath.scrubTime(
+            locationX: 340,
+            trackMinX: 10,
+            trackWidth: 300,
+            duration: 12,
+            minimumTime: 2,
+            maximumTime: 8
+        )
+
+        XCTAssertEqual(updated, 8, accuracy: 0.0001)
+    }
+
+    func testResolveDragTargetSelectsPlayheadAwayFromTrimHandles() {
+        let target = TrimTimelineMath.resolveDragTarget(
+            startLocationX: 180,
+            startHandleCenterX: 60,
+            endHandleCenterX: 280,
+            handleHitAreaWidth: 60,
+            playheadCenterX: 184,
+            playheadHitAreaWidth: 24
+        )
+
+        XCTAssertEqual(target, .playhead)
+    }
+
+    func testResolveDragTargetKeepsHandlePriorityOverPlayhead() {
+        let target = TrimTimelineMath.resolveDragTarget(
+            startLocationX: 70,
+            startHandleCenterX: 64,
+            endHandleCenterX: 280,
+            handleHitAreaWidth: 60,
+            playheadCenterX: 72,
+            playheadHitAreaWidth: 24
+        )
+
+        XCTAssertEqual(target, .startHandle)
+    }
 }

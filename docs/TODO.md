@@ -101,6 +101,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Align trim outline/handles with timeline height and restore reliable start-handle drag behavior
 - [x] Stabilize both trim-handle drags using unified timeline drag routing with explicit start/end handle resolution at drag begin
 - [x] Keep the trim timeline gesture host framed to the full strip width so the trailing handle stays inside hit-test bounds
+- [x] Add playhead scrubbing in Edit mode by dragging the timeline hairline indicator without affecting trim handles
 
 ---
 
@@ -178,13 +179,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add trim timeline drag math tests for both start/end handles and handle-target resolution
 - [x] Add accessibility identifiers used by UI tests
 - [x] Add XCUITest suites for launch, library, settings, and source picker flows
-- [x] Fix UI test bundle signing mismatch in local/dev builds (disable test target signing + hardened runtime)
+- [x] Fix local UI test runner signing so `MoolUITests-Runner.app` launches without Gatekeeper blocking on recent macOS
 - [~] Stabilize flaky XCUITests (status item hit-testing and ambiguous `Settings…` menu item query)
 - [x] Add deterministic right-click status-menu UI test coverage for `Open Library` and `Settings…`
 - [x] Add deterministic quick-recorder Start permission UI tests for denied/granted screen-recording flows (with test-only permission/recording hooks)
 - [x] Add regression coverage for consecutive single-attempt camera bubble drags
 - [x] Add unit coverage for quick-recorder AV toggle permission fallback policy
 - [x] Add end-to-end Library trim drag UI coverage for both start and end handles
+- [x] Add trim timeline scrub math coverage for dragging the playhead within the current trim range
 - [ ] Add deterministic coverage for microphone permission status/request bridging without relying on live TCC prompts
 
 ---

@@ -169,6 +169,7 @@ struct VideoDetailView: View {
     @State private var isSavingEdit = false
     @State private var editErrorMessage: String?
     @State private var isPlaying = false
+    @State private var isScrubbingPlayhead = false
     @State private var currentPlaybackTime: Double = 0
     @State private var playheadTimer: Timer?
 
@@ -255,7 +256,10 @@ struct VideoDetailView: View {
                     startTime: $editStart,
                     endTime: $editEnd,
                     minimumSpan: minimumTrimSpan,
-                    playheadTime: currentPlaybackTime
+                    playheadTime: currentPlaybackTime,
+                    onPlayheadScrubBegan: beginPlayheadScrubbing,
+                    onPlayheadScrubChanged: scrubPlayback,
+                    onPlayheadScrubEnded: endPlayheadScrubbing
                 )
                 .frame(maxWidth: .infinity, minHeight: timelineHeight, maxHeight: timelineHeight)
 
@@ -396,6 +400,7 @@ struct VideoDetailView: View {
         player?.currentItem?.forwardPlaybackEndTime = .invalid
         stopPlayheadTimer()
         editErrorMessage = nil
+        isScrubbingPlayhead = false
     }
 
     @MainActor
@@ -406,6 +411,7 @@ struct VideoDetailView: View {
         editPlaybackRate = 1.0
         editErrorMessage = nil
         isSavingEdit = false
+        isScrubbingPlayhead = false
         currentPlaybackTime = 0
     }
 
@@ -451,6 +457,33 @@ struct VideoDetailView: View {
     private func applyPlaybackRateIfPlaying() {
         guard let player, player.timeControlStatus == .playing else { return }
         player.playImmediately(atRate: Float(editPlaybackRate))
+    }
+
+    @MainActor
+    private func beginPlayheadScrubbing() {
+        guard !isScrubbingPlayhead else { return }
+        isScrubbingPlayhead = true
+        player?.pause()
+        isPlaying = false
+    }
+
+    @MainActor
+    private func scrubPlayback(to time: Double) {
+        let clampedTime = clamp(time, min: editStart, max: editEnd)
+        currentPlaybackTime = clampedTime
+
+        guard let player else { return }
+        player.seek(
+            to: CMTime(seconds: clampedTime, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        )
+    }
+
+    @MainActor
+    private func endPlayheadScrubbing(at time: Double) {
+        scrubPlayback(to: time)
+        isScrubbingPlayhead = false
     }
 
     private func saveEditedVersion() {
@@ -514,6 +547,10 @@ struct VideoDetailView: View {
         }
 
         isPlaying = player.timeControlStatus == .playing
+        if isScrubbingPlayhead {
+            return
+        }
+
         let now = player.currentTime().seconds
         if now.isFinite {
             currentPlaybackTime = max(0, now)
@@ -578,14 +615,20 @@ struct TrimTimelineStrip: View {
     @Binding var endTime: Double
     let minimumSpan: Double
     let playheadTime: Double?
+    let onPlayheadScrubBegan: () -> Void
+    let onPlayheadScrubChanged: (Double) -> Void
+    let onPlayheadScrubEnded: (Double) -> Void
 
     private let handleVisualWidth: CGFloat = 18
     private let handleHitAreaWidth: CGFloat = 44
+    private let playheadHitAreaWidth: CGFloat = 18
+    private let playheadGripHeight: CGFloat = 7
+    private let playheadTopInset: CGFloat = 12
     private let trackCornerRadius: CGFloat = 10
     private let horizontalPadding: CGFloat = 20
     private let selectionStrokeWidth: CGFloat = 3
     private let showsDebugOverlay = false
-    @State private var activeHandle: TrimHandleDragMath.TargetHandle?
+    @State private var activeDragTarget: TrimTimelineMath.DragTarget?
     @State private var startDragOrigin: Double?
     @State private var endDragOrigin: Double?
     @State private var startDragEventCount = 0
@@ -598,11 +641,13 @@ struct TrimTimelineStrip: View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             let height = max(proxy.size.height, 1)
+            let trackHeight = max(height - playheadTopInset, 1)
             let handleInset = handleHitAreaWidth / 2
             let trackMinX = horizontalPadding + handleInset
             let trackWidth = max(width - (horizontalPadding * 2) - (handleInset * 2), 1)
             let startX = trackMinX + CGFloat(startProgress) * trackWidth
             let endX = trackMinX + CGFloat(endProgress) * trackWidth
+            let playheadCenterX = playheadX(trackMinX: trackMinX, trackWidth: trackWidth)
             let startOffsetX = startX - (handleHitAreaWidth / 2)
             let endOffsetX = endX - (handleHitAreaWidth / 2)
 
@@ -611,49 +656,50 @@ struct TrimTimelineStrip: View {
                     RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous)
                         .fill(Color.black.opacity(0.25))
 
-                    thumbnailTrack(width: trackWidth, height: height)
+                    thumbnailTrack(width: trackWidth, height: trackHeight)
                         .clipShape(RoundedRectangle(cornerRadius: trackCornerRadius, style: .continuous))
 
                     Color.black.opacity(0.45)
-                        .frame(width: max(startX - trackMinX, 0), height: height)
+                        .frame(width: max(startX - trackMinX, 0), height: trackHeight)
 
                     Color.black.opacity(0.45)
-                        .frame(width: max((trackMinX + trackWidth) - endX, 0), height: height)
+                        .frame(width: max((trackMinX + trackWidth) - endX, 0), height: trackHeight)
                         .offset(x: endX - trackMinX)
 
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(Color.yellow, lineWidth: selectionStrokeWidth)
                         .frame(
                             width: max(endX - startX, handleVisualWidth),
-                            height: height + selectionStrokeWidth
+                            height: trackHeight + selectionStrokeWidth
                         )
                         .offset(x: startX - trackMinX, y: -(selectionStrokeWidth / 2))
-
-                    if playheadTime != nil {
-                        Capsule(style: .continuous)
-                            .fill(.white.opacity(0.92))
-                            .frame(width: 2, height: height + 4)
-                            .offset(x: (playheadX(trackMinX: trackMinX, trackWidth: trackWidth, height: height) - trackMinX) - 1, y: -2)
-                            .shadow(color: .black.opacity(0.3), radius: 1)
-                    }
                 }
-                .frame(width: trackWidth, height: height)
-                .offset(x: trackMinX)
+                .frame(width: trackWidth, height: trackHeight)
+                .offset(x: trackMinX, y: playheadTopInset)
                 .zIndex(0)
                 .accessibilityIdentifier("library.trim.timeline")
 
-                handleView(height: height)
-                    .frame(width: handleHitAreaWidth, height: height)
+                if playheadTime != nil {
+                    playheadView(trackHeight: trackHeight)
+                        .frame(width: playheadHitAreaWidth, height: height)
+                        .offset(x: playheadCenterX - (playheadHitAreaWidth / 2))
+                        .zIndex(1)
+                        .accessibilityIdentifier("library.trim.playhead")
+                        .allowsHitTesting(false)
+                }
+
+                handleView(height: trackHeight)
+                    .frame(width: handleHitAreaWidth, height: trackHeight)
                     .contentShape(Rectangle())
-                    .offset(x: startOffsetX)
+                    .offset(x: startOffsetX, y: playheadTopInset)
                     .zIndex(2)
                     .accessibilityIdentifier("library.trimHandle.start")
                     .allowsHitTesting(false)
 
-                handleView(height: height)
-                    .frame(width: handleHitAreaWidth, height: height)
+                handleView(height: trackHeight)
+                    .frame(width: handleHitAreaWidth, height: trackHeight)
                     .contentShape(Rectangle())
-                    .offset(x: endOffsetX)
+                    .offset(x: endOffsetX, y: playheadTopInset)
                     .zIndex(3)
                     .accessibilityIdentifier("library.trimHandle.end")
                     .allowsHitTesting(false)
@@ -662,10 +708,12 @@ struct TrimTimelineStrip: View {
             .contentShape(Rectangle())
             .coordinateSpace(name: "trimTimeline")
             .highPriorityGesture(
-                handleDragGesture(
+                timelineDragGesture(
                     trackWidth: trackWidth,
                     startHandleCenterX: startX,
-                    endHandleCenterX: endX
+                    endHandleCenterX: endX,
+                    playheadCenterX: playheadCenterX,
+                    trackMinX: trackMinX
                 )
             )
             .overlay(alignment: .topLeading) {
@@ -737,6 +785,24 @@ struct TrimTimelineStrip: View {
         }
     }
 
+    private func playheadView(trackHeight: CGFloat) -> some View {
+        ZStack(alignment: .top) {
+            Color.white.opacity(0.001)
+                .frame(width: playheadHitAreaWidth, height: trackHeight + playheadTopInset + 4)
+
+            Capsule(style: .continuous)
+                .fill(.white.opacity(0.92))
+                .frame(width: 2, height: trackHeight + 4)
+                .offset(y: playheadTopInset - 2)
+                .shadow(color: .black.opacity(0.3), radius: 1)
+
+            RoundedRectangle(cornerRadius: playheadGripHeight / 2, style: .continuous)
+                .fill(.white.opacity(0.98))
+                .frame(width: playheadHitAreaWidth - 4, height: playheadGripHeight)
+                .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
+        }
+    }
+
     private var debugOverlay: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("TRIM DEBUG")
@@ -756,33 +822,44 @@ struct TrimTimelineStrip: View {
     }
 
     private var activeHandleLabel: String {
-        guard let activeHandle else { return "none" }
-        return activeHandle == .start ? "start" : "end"
+        guard let activeDragTarget else { return "none" }
+        switch activeDragTarget {
+        case .startHandle:
+            return "start"
+        case .endHandle:
+            return "end"
+        case .playhead:
+            return "playhead"
+        }
     }
 
-    private func handleDragGesture(
+    private func timelineDragGesture(
         trackWidth: CGFloat,
         startHandleCenterX: CGFloat,
-        endHandleCenterX: CGFloat
+        endHandleCenterX: CGFloat,
+        playheadCenterX: CGFloat,
+        trackMinX: CGFloat
     ) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .named("trimTimeline"))
             .onChanged { value in
-                if activeHandle == nil {
-                    activeHandle = TrimHandleDragMath.resolveTargetHandle(
+                if activeDragTarget == nil {
+                    activeDragTarget = TrimTimelineMath.resolveDragTarget(
                         startLocationX: value.startLocation.x,
                         startHandleCenterX: startHandleCenterX,
                         endHandleCenterX: endHandleCenterX,
-                        hitAreaWidth: handleHitAreaWidth + 16
+                        handleHitAreaWidth: handleHitAreaWidth + 16,
+                        playheadCenterX: playheadCenterX,
+                        playheadHitAreaWidth: playheadHitAreaWidth + 8
                     )
                 }
 
-                guard let activeHandle else {
+                guard let activeDragTarget else {
                     lastDebugEvent = "IGNORED_OUTSIDE_HANDLES"
                     return
                 }
 
-                switch activeHandle {
-                case .start:
+                switch activeDragTarget {
+                case .startHandle:
                     if startDragOrigin == nil {
                         startDragOrigin = startTime
                         endDragOrigin = nil
@@ -802,7 +879,7 @@ struct TrimTimelineStrip: View {
                         minimumSpan: minimumSpan
                     )
 
-                case .end:
+                case .endHandle:
                     if endDragOrigin == nil {
                         endDragOrigin = endTime
                         startDragOrigin = nil
@@ -821,21 +898,47 @@ struct TrimTimelineStrip: View {
                         startTime: startTime,
                         minimumSpan: minimumSpan
                     )
+
+                case .playhead:
+                    lastDebugEvent = "PLAYHEAD_CHANGED"
+                    onPlayheadScrubBegan()
+                    onPlayheadScrubChanged(
+                        TrimTimelineMath.scrubTime(
+                            locationX: value.location.x,
+                            trackMinX: trackMinX,
+                            trackWidth: trackWidth,
+                            duration: duration,
+                            minimumTime: startTime,
+                            maximumTime: endTime
+                        )
+                    )
                 }
             }
-            .onEnded { _ in
-                if activeHandle == .start {
+            .onEnded { value in
+                if activeDragTarget == .startHandle {
                     lastDebugEvent = "START_ENDED"
-                } else if activeHandle == .end {
+                } else if activeDragTarget == .endHandle {
                     lastDebugEvent = "END_ENDED"
+                } else if activeDragTarget == .playhead {
+                    lastDebugEvent = "PLAYHEAD_ENDED"
+                    onPlayheadScrubEnded(
+                        TrimTimelineMath.scrubTime(
+                            locationX: value.location.x,
+                            trackMinX: trackMinX,
+                            trackWidth: trackWidth,
+                            duration: duration,
+                            minimumTime: startTime,
+                            maximumTime: endTime
+                        )
+                    )
                 }
-                activeHandle = nil
+                activeDragTarget = nil
                 endDragOrigin = nil
                 startDragOrigin = nil
             }
     }
 
-    private func playheadX(trackMinX: CGFloat, trackWidth: CGFloat, height _: CGFloat) -> CGFloat {
+    private func playheadX(trackMinX: CGFloat, trackWidth: CGFloat) -> CGFloat {
         guard let playheadTime else { return trackMinX }
         let progress = clamp(playheadTime / max(duration, minimumSpan), min: 0, max: 1)
         return trackMinX + CGFloat(progress) * trackWidth
@@ -905,6 +1008,57 @@ enum TrimHandleDragMath {
         let deltaTime = deltaProgress * duration
         let candidate = origin + deltaTime
         return clamp(candidate, min: startTime + minimumSpan, max: duration)
+    }
+
+    private static func clamp(_ value: Double, min: Double, max: Double) -> Double {
+        Swift.min(Swift.max(value, min), max)
+    }
+}
+
+enum TrimTimelineMath {
+    enum DragTarget {
+        case startHandle
+        case endHandle
+        case playhead
+    }
+
+    static func resolveDragTarget(
+        startLocationX: CGFloat,
+        startHandleCenterX: CGFloat,
+        endHandleCenterX: CGFloat,
+        handleHitAreaWidth: CGFloat,
+        playheadCenterX: CGFloat,
+        playheadHitAreaWidth: CGFloat
+    ) -> DragTarget? {
+        if let handleTarget = TrimHandleDragMath.resolveTargetHandle(
+            startLocationX: startLocationX,
+            startHandleCenterX: startHandleCenterX,
+            endHandleCenterX: endHandleCenterX,
+            hitAreaWidth: handleHitAreaWidth
+        ) {
+            return handleTarget == .start ? .startHandle : .endHandle
+        }
+
+        let playheadHitRadius = max(playheadHitAreaWidth / 2, 1)
+        if abs(startLocationX - playheadCenterX) <= playheadHitRadius {
+            return .playhead
+        }
+
+        return nil
+    }
+
+    static func scrubTime(
+        locationX: CGFloat,
+        trackMinX: CGFloat,
+        trackWidth: CGFloat,
+        duration: Double,
+        minimumTime: Double,
+        maximumTime: Double
+    ) -> Double {
+        let safeTrackWidth = max(trackWidth, 1)
+        let progress = Double((locationX - trackMinX) / safeTrackWidth)
+        let candidate = progress * duration
+        return clamp(candidate, min: minimumTime, max: maximumTime)
     }
 
     private static func clamp(_ value: Double, min: Double, max: Double) -> Double {

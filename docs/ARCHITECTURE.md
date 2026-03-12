@@ -235,6 +235,7 @@ Library playback behavior:
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
 - Edit mode overlays a timeline strip with thumbnail rail and draggable in/out handles; drag input is handled by a single high-priority timeline gesture that resolves start/end handle ownership at drag begin for stable mouse interaction.
 - The trim strip's gesture host must be framed to the full geometry width before offsetting the handles; otherwise the end handle can render outside the parent hit bounds and stop receiving drag input.
+- The edit timeline also renders a draggable playhead grip above the hairline. Dragging it pauses playback and seeks the preview within `[trimStart, trimEnd]`, while the trim-handle drag path remains separate so scrubbing does not mutate the trim range.
 - Save in Edit mode writes a new edited recording (trimmed and speed-adjusted), preserving the original file.
 
 ---
@@ -282,4 +283,4 @@ All state is published via `@Observable` so SwiftUI views and overlay panels upd
   - `MOOL_TEST_SCREEN_PERMISSION` (`granted` / `denied`)
   - `MOOL_TEST_DISABLE_SYSTEM_SETTINGS_OPEN`
   - trace files via `MOOL_PERMISSION_TRACE_PATH` and `MOOL_RECORDING_TRACE_PATH`
-- For local/dev testing, test targets disable code-signing and hardened runtime in `project.yml` to avoid Team ID mismatch when loading the UI test bundle.
+- For local/dev testing, `MoolUITests` should stay locally signed so the generated `MoolUITests-Runner.app` passes Gatekeeper; only the unit-test bundle disables local signing/hardened runtime in `project.yml`.

@@ -1,14 +1,16 @@
 # Task Plan
 
-- [x] Reproduce the library trim bug end-to-end and confirm why the end handle does not drag.
-- [x] Fix the trim timeline so the trailing handle is draggable without affecting the start handle path.
-- [x] Re-run targeted UI/unit coverage, update docs/tasks/lessons, and record the result.
+- [x] Add draggable playhead scrubbing to the library edit timeline without regressing trim-handle dragging.
+- [x] Cover the new playhead drag path with focused tests.
+- [x] Re-run targeted tests/build, then update docs/tasks to record the interaction.
 
 ## Review
 
-- Root cause: [`TrimTimelineStrip`](/Users/suchanlee/code/mool/Mool/UI/Library/LibraryView.swift) was positioning its handles with `offset` inside a gesture host that was never explicitly sized to the full `GeometryReader` width. In SwiftUI, `offset` changes rendering position but does not expand layout or hit-test bounds, so the trailing trim handle could render near the right edge while still falling outside the parent drag region.
-- Fix: the trim strip now frames the outer gesture host to the full geometry size before applying the shared drag gesture, keeping the end handle inside the hit region. [`LibraryUITests.swift`](/Users/suchanlee/code/mool/MoolUITests/LibraryUITests.swift) now creates a sample recording, opens Edit mode, and verifies that both the start and end trim handles update their respective labels when dragged.
+- Change: [`TrimTimelineStrip`](/Users/suchanlee/code/mool/Mool/UI/Library/LibraryView.swift) now renders a draggable playhead grip tied to the existing hairline indicator and routes its drag through [`TrimTimelineMath.scrubTime(...)`](/Users/suchanlee/code/mool/Mool/UI/Library/LibraryView.swift). [`VideoDetailView`](/Users/suchanlee/code/mool/Mool/UI/Library/LibraryView.swift) pauses playback on scrub begin, seeks `AVPlayer` on drag updates, and keeps the scrubbing state from fighting the timer-driven playhead refresh.
+- Trim-handle behavior is unchanged: start/end drags still use the existing trim math and update the trim range independently of playhead scrubbing.
+- `MoolUITests` in [`project.yml`](/Users/suchanlee/code/mool/project.yml) now keeps local code signing enabled so the generated `MoolUITests-Runner.app` is launchable by Gatekeeper during `xcodebuild test`.
+- The Library UI scrub test now chooses a drag destination relative to the current playhead position instead of assuming the playhead always starts near the left edge.
 - Verification:
-  - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' -only-testing:MoolUITests/LibraryUITests/testEditTrimStartHandle_dragsAndUpdatesStartLabel -only-testing:MoolUITests/LibraryUITests/testEditTrimEndHandle_dragsAndUpdatesEndLabel test`
   - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' -only-testing:MoolTests/TrimHandleDragMathTests test`
   - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' build`
+  - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' -only-testing:MoolUITests/LibraryUITests/testEditTrimPlayhead_dragsAndMovesIndicator test`

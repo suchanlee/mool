@@ -90,6 +90,63 @@ final class LibraryUITests: XCTestCase {
         )
     }
 
+    func testEditTrimPlayhead_dragsAndMovesIndicator() {
+        openEditorForSampleRecording()
+
+        let playhead = app.descendants(matching: .any)["library.trim.playhead"].firstMatch
+        XCTAssertTrue(playhead.waitForExistence(timeout: 8), "Trim playhead did not appear")
+        let timeline = app.descendants(matching: .any)["library.trim.timeline"].firstMatch
+        XCTAssertTrue(timeline.waitForExistence(timeout: 8), "Trim timeline did not appear")
+
+        let timelineFrame = timeline.frame
+        let initialMidX = playhead.frame.midX
+        let initialMidY = playhead.frame.midY
+        let edgePadding: CGFloat = 24
+        let minimumMovement: CGFloat = 20
+        let preferredTravel: CGFloat = 120
+        let roomToRight = timelineFrame.maxX - initialMidX - edgePadding
+        let roomToLeft = initialMidX - timelineFrame.minX - edgePadding
+        let dragRight = roomToRight >= roomToLeft
+        let availableTravel = max(dragRight ? roomToRight : roomToLeft, 0)
+        XCTAssertGreaterThan(
+            availableTravel,
+            minimumMovement,
+            "Playhead did not have enough room to drag within the timeline. Timeline frame: \(timelineFrame), playhead frame: \(playhead.frame)"
+        )
+
+        let targetMidX: CGFloat = if dragRight {
+            min(timelineFrame.maxX - edgePadding, initialMidX + min(preferredTravel, availableTravel))
+        } else {
+            max(timelineFrame.minX + edgePadding, initialMidX - min(preferredTravel, availableTravel))
+        }
+
+        let normalizedTargetX = max(
+            0,
+            min(1, (targetMidX - timelineFrame.minX) / max(timelineFrame.width, 1))
+        )
+
+        let dragStart = playhead.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let dragEnd = timeline.coordinate(
+            withNormalizedOffset: CGVector(
+                dx: normalizedTargetX,
+                dy: max(0, min(1, (initialMidY - timelineFrame.minY) / max(timelineFrame.height, 1)))
+            )
+        )
+        dragStart.press(forDuration: 0.05, thenDragTo: dragEnd)
+
+        if dragRight {
+            XCTAssertTrue(
+                waitForElementMidX(playhead, toExceed: initialMidX + minimumMovement, timeout: 5),
+                "Trim playhead did not move right after dragging. Initial midX: \(initialMidX), target midX: \(targetMidX), current frame: \(playhead.frame)"
+            )
+        } else {
+            XCTAssertTrue(
+                waitForElementMidX(playhead, toFallBelow: initialMidX - minimumMovement, timeout: 5),
+                "Trim playhead did not move left after dragging. Initial midX: \(initialMidX), target midX: \(targetMidX), current frame: \(playhead.frame)"
+            )
+        }
+    }
+
     private func makeStorageDirectory() -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
             .appendingPathComponent("mool-library-uitests-\(UUID().uuidString)", isDirectory: true)
@@ -180,6 +237,36 @@ final class LibraryUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if element.exists, displayedText(of: element) != previousText {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func waitForElementMidX(
+        _ element: XCUIElement,
+        toExceed threshold: CGFloat,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.frame.midX > threshold {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func waitForElementMidX(
+        _ element: XCUIElement,
+        toFallBelow threshold: CGFloat,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.frame.midX < threshold {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
