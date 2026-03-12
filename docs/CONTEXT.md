@@ -132,6 +132,7 @@ AppDelegate
      - At app launch, camera/microphone toggles are normalized OFF when permission is `.notDetermined`.
      - On popover open, `MenuBarController` shows the quick preview bubble shell immediately.
      - It prepares quick-recorder context and refreshes `CameraBubbleWindow` once ready.
+     - The quick popover reuses cached screen/window source lists instead of re-enumerating `SCShareableContent` on every open; a fresh source refresh still happens on recording start.
      - Camera/microphone permissions are requested only when their toggles are turned ON.
      - Quick-recorder camera/microphone toggles always attempt the inline AV permission request first; System Settings is only opened as a fallback when the permission was already denied before that click.
      - Quick-recorder controls are disabled while recording/paused to avoid mutating next-session settings mid-capture.

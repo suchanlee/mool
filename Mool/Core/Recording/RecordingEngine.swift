@@ -180,11 +180,12 @@ final class RecordingEngine {
     func prepareQuickRecorderContext(shouldRefreshScreenSources: Bool) async {
         guard state == .idle else { return }
         if shouldRefreshScreenSources {
-            await availableSources.refresh()
+            if !availableSources.hasLoadedScreenSources {
+                await availableSources.refresh()
+            }
         } else if settings.mode.includesScreen {
             // Avoid stale display/window lists when screen permission is unavailable.
-            availableSources.displays = []
-            availableSources.windows = []
+            availableSources.clear()
         }
         syncCameraPreviewForCurrentSettings()
     }

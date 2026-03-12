@@ -160,6 +160,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Reuse the existing Mool logo in Settings -> About, the menu bar status item, and the mounted DMG volume
 - [x] Fix `project.yml`/generated project so `AppIcon.appiconset` is bundled into builds instead of falling back to the generic placeholder icon
 - [x] Fix Library recording selection crash by linking `AVKit.framework` so packaged builds can instantiate `VideoPlayer`
+- [x] Prevent the quick recorder popover from re-triggering screen-capture consent by caching screen/window source lists between opens
 
 ---
 

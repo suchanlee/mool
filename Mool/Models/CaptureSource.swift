@@ -47,14 +47,14 @@ final class AvailableSources {
     var displays: [SCDisplay] = []
     var windows: [SCWindow] = []
     var isLoading: Bool = false
+    private(set) var hasLoadedScreenSources = false
 
     func refresh() async {
         isLoading = true
         defer { isLoading = false }
 
         guard CGPreflightScreenCaptureAccess() else {
-            displays = []
-            windows = []
+            clear()
             return
         }
 
@@ -92,8 +92,16 @@ final class AvailableSources {
                     }
                     return lhsApp < rhsApp
                 }
+            hasLoadedScreenSources = true
         } catch {
+            hasLoadedScreenSources = false
             print("[AvailableSources] Failed to enumerate sources: \(error)")
         }
+    }
+
+    func clear() {
+        displays = []
+        windows = []
+        hasLoadedScreenSources = false
     }
 }
