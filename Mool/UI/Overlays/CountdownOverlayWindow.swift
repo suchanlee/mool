@@ -13,9 +13,15 @@ final class CountdownOverlayModel {
 /// Full-screen, click-through overlay for pre-recording countdown.
 final class CountdownOverlayWindow: NSWindow {
     private let model: CountdownOverlayModel
+    let displayID: CGDirectDisplayID?
 
     init(screen: NSScreen, secondsRemaining: Int) {
-        self.model = CountdownOverlayModel(secondsRemaining: secondsRemaining)
+        model = CountdownOverlayModel(secondsRemaining: secondsRemaining)
+        if let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+            displayID = CGDirectDisplayID(screenNumber.uint32Value)
+        } else {
+            displayID = nil
+        }
         super.init(
             contentRect: screen.frame,
             styleMask: [.borderless],

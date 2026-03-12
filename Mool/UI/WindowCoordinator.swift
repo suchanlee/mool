@@ -1,5 +1,59 @@
 import AppKit
 
+enum CountdownTargetResolver {
+    struct DisplaySource: Equatable {
+        let displayID: CGDirectDisplayID
+    }
+
+    struct WindowSource: Equatable {
+        let windowID: CGWindowID
+        let frame: CGRect
+    }
+
+    struct ScreenTarget: Equatable {
+        let displayID: CGDirectDisplayID
+        let frame: CGRect
+    }
+
+    static func resolveDisplayIDs(
+        modeIncludesScreen: Bool,
+        selectedDisplayIndex: Int,
+        selectedWindowID: CGWindowID?,
+        availableDisplays: [DisplaySource],
+        availableWindows: [WindowSource],
+        connectedScreens: [ScreenTarget]
+    ) -> [CGDirectDisplayID] {
+        guard modeIncludesScreen else { return [] }
+        guard !connectedScreens.isEmpty else { return [] }
+
+        if let selectedWindowID,
+           let window = availableWindows.first(where: { $0.windowID == selectedWindowID }),
+           let screen = connectedScreens
+           .map({ ($0.displayID, overlapArea(lhs: $0.frame, rhs: window.frame)) })
+           .max(by: { $0.1 < $1.1 }),
+           screen.1 > 0
+        {
+            return [screen.0]
+        }
+
+        guard !availableDisplays.isEmpty else {
+            return [connectedScreens[0].displayID]
+        }
+
+        let index = min(max(selectedDisplayIndex, 0), availableDisplays.count - 1)
+        let displayID = availableDisplays[index].displayID
+        if connectedScreens.contains(where: { $0.displayID == displayID }) {
+            return [displayID]
+        }
+
+        return [connectedScreens[0].displayID]
+    }
+
+    private static func overlapArea(lhs: CGRect, rhs: CGRect) -> CGFloat {
+        lhs.intersection(rhs).isNull ? 0 : lhs.intersection(rhs).width * lhs.intersection(rhs).height
+    }
+}
+
 // MARK: - Window Coordinator
 
 /// Owns and manages all overlay windows (control panel, camera bubble,
@@ -258,9 +312,16 @@ final class WindowCoordinator {
     }
 
     private func showCountdownOverlay(secondsRemaining: Int) {
-        let screens = NSScreen.screens
+        let screens = countdownTargetScreens()
+        guard !screens.isEmpty else {
+            hideCountdownOverlay()
+            return
+        }
 
-        if countdownOverlayWindows.count != screens.count {
+        let currentDisplayIDs = countdownOverlayWindows.map(\.displayID)
+        let targetDisplayIDs = screens.map(\.displayID)
+
+        if currentDisplayIDs != targetDisplayIDs {
             countdownOverlayWindows.forEach { $0.orderOut(nil) }
             countdownOverlayWindows = screens.map { CountdownOverlayWindow(screen: $0, secondsRemaining: secondsRemaining) }
         }
@@ -276,6 +337,28 @@ final class WindowCoordinator {
     private func hideCountdownOverlay() {
         for overlay in countdownOverlayWindows where overlay.isVisible {
             overlay.orderOut(nil)
+        }
+    }
+
+    private func countdownTargetScreens() -> [NSScreen] {
+        let targetDisplayIDs = CountdownTargetResolver.resolveDisplayIDs(
+            modeIncludesScreen: recordingEngine.settings.mode.includesScreen,
+            selectedDisplayIndex: recordingEngine.settings.selectedDisplayIndex,
+            selectedWindowID: recordingEngine.settings.selectedWindowID,
+            availableDisplays: recordingEngine.availableSources.displays.map {
+                CountdownTargetResolver.DisplaySource(displayID: $0.displayID)
+            },
+            availableWindows: recordingEngine.availableSources.windows.map {
+                CountdownTargetResolver.WindowSource(windowID: $0.windowID, frame: $0.frame)
+            },
+            connectedScreens: NSScreen.screens.compactMap { screen in
+                guard let displayID = screen.displayID else { return nil }
+                return CountdownTargetResolver.ScreenTarget(displayID: displayID, frame: screen.frame)
+            }
+        )
+
+        return targetDisplayIDs.compactMap { targetDisplayID in
+            NSScreen.screens.first(where: { $0.displayID == targetDisplayID })
         }
     }
 
@@ -369,5 +452,14 @@ final class WindowCoordinator {
     private func setCameraBubbleSize(_ preset: CameraBubbleSizePreset) {
         cameraBubbleWindow?.applySizePreset(preset)
         updateBubbleAttachedHUD()
+    }
+}
+
+private extension NSScreen {
+    var displayID: CGDirectDisplayID? {
+        guard let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return nil
+        }
+        return CGDirectDisplayID(screenNumber.uint32Value)
     }
 }
