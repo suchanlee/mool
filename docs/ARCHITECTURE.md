@@ -234,6 +234,7 @@ Library playback behavior:
 - The app target must link `AVKit.framework`; `LibraryView` uses SwiftUI `VideoPlayer`, and packaged builds will abort at selection time if `AVKit` is missing.
 - Selecting a different recording replaces the active `AVPlayerItem` so the preview updates immediately.
 - Edit mode overlays a timeline strip with thumbnail rail and draggable in/out handles; drag input is handled by a single high-priority timeline gesture that resolves start/end handle ownership at drag begin for stable mouse interaction.
+- The trim strip's gesture host must be framed to the full geometry width before offsetting the handles; otherwise the end handle can render outside the parent hit bounds and stop receiving drag input.
 - Save in Edit mode writes a new edited recording (trimmed and speed-adjusted), preserving the original file.
 
 ---

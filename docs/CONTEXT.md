@@ -288,6 +288,7 @@ The **CountdownOverlayWindow** is borderless, click-through, and shown only over
 - Right-click context menu preserved for library/settings/quit actions
 - Library view (AVPlayer preview, duration metadata, unified Edit mode with timeline strip/handles, trim + speed edited export, delete/rename/reveal actions)
   - Trim timeline uses a single high-priority drag gesture that resolves the active handle (start/end) at drag begin, then applies translation-based updates for stable dual-handle dragging.
+  - `TrimTimelineStrip` must size its gesture host to the full geometry width before applying `offset`-positioned handles; SwiftUI offsets do not expand layout bounds, and the trailing handle becomes non-draggable if it renders outside the parent hit region.
 - Settings (Recording, Storage, About tabs)
 - Permissions onboarding view
 - Menu bar with red pulsing icon during recording

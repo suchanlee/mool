@@ -658,6 +658,7 @@ struct TrimTimelineStrip: View {
                     .accessibilityIdentifier("library.trimHandle.end")
                     .allowsHitTesting(false)
             }
+            .frame(width: width, height: height, alignment: .leading)
             .contentShape(Rectangle())
             .coordinateSpace(name: "trimTimeline")
             .highPriorityGesture(

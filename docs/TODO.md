@@ -100,6 +100,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Fix editor interactions: reliable end-handle dragging and full-surface click targets for play/save/cancel controls
 - [x] Align trim outline/handles with timeline height and restore reliable start-handle drag behavior
 - [x] Stabilize both trim-handle drags using unified timeline drag routing with explicit start/end handle resolution at drag begin
+- [x] Keep the trim timeline gesture host framed to the full strip width so the trailing handle stays inside hit-test bounds
 
 ---
 
@@ -183,6 +184,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Add deterministic quick-recorder Start permission UI tests for denied/granted screen-recording flows (with test-only permission/recording hooks)
 - [x] Add regression coverage for consecutive single-attempt camera bubble drags
 - [x] Add unit coverage for quick-recorder AV toggle permission fallback policy
+- [x] Add end-to-end Library trim drag UI coverage for both start and end handles
 - [ ] Add deterministic coverage for microphone permission status/request bridging without relying on live TCC prompts
 
 ---
