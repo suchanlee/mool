@@ -153,12 +153,15 @@ AppDelegate
    - Calls `beginCapture()`:
      - Creates `VideoWriter` with source dimensions aligned to `SCStream` resolution (`contentRect * 2`) → calls `writer.setup()`
      - Configures + starts `ScreenCaptureManager` (display or window)
-     - Starts `CameraManager`, hooks `onFrame → videoWriter.updateCameraFrame()`
+     - Starts `CameraManager`
+       - Full-display capture leaves writer-side camera compositing off because the floating bubble is already in the screen stream.
+       - Selected-window capture hooks `onFrame → videoWriter.updateCameraFrame()` because ScreenCaptureKit does not include Mool overlays in `desktopIndependentWindow` output.
      - Starts `AudioManager`, hooks `onMicBuffer → videoWriter.appendMicAudio()`
      - Sets `state = .recording`, starts elapsed timer
    - If startup fails at any point, it rolls back partial startup (stops capture sessions, cancels writer, clears session) and returns to `.idle`.
 5. `WindowCoordinator` shows recording overlays; during countdown it shows `CountdownOverlayWindow` only over the active capture region: the selected display in display-capture mode, or the selected window frame in window-capture mode.
    - Countdown target geometry is normalized into AppKit coordinates before overlay placement because `SCWindow.frame` / CoreGraphics display bounds use a different vertical origin than AppKit windows.
+   - During selected-window capture, it also keeps `VideoWriter` aligned with the live camera bubble frame and repositions the bubble onto the active capture target if it would otherwise start completely off-target.
    - In camera-including modes, the recording HUD is positioned below the camera bubble and only shown while hovering the bubble/HUD region.
 6. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
 7. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
@@ -249,7 +252,7 @@ Note: use the raw string `"AXTrustedCheckOptionPrompt"` — using the `kAXTruste
 - Default location: `~/Movies/Mool/`
 - Naming: `Mool_YYYY-MM-DD_HH-mm-ss.mov` (auto-suffixed with `_1`, `_2`, ... on collisions)
 - Format: QuickTime `.mov`, H.264 video, AAC audio
-- Camera PiP: composited in software via CoreImage at write time (bottom-right, 22% of screen width, circular-ish crop)
+- Camera PiP: composited in software via CoreImage at write time. Camera-only mode uses the default bottom-right placement; selected-window capture uses the live camera bubble geometry so the output matches the draggable on-screen bubble.
 - Bitrates: 720p=5Mbps, 1080p=10Mbps, 4K=40Mbps
 
 ---

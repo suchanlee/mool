@@ -9,6 +9,15 @@ import SwiftUI
 
 // MARK: - Recording Engine
 
+enum CameraCompositingStrategy: Equatable {
+    case capturedInScreenStream
+    case compositedInWriter
+
+    static func resolve(modeIncludesScreen: Bool, capturesSelectedWindow: Bool) -> Self {
+        modeIncludesScreen && !capturesSelectedWindow ? .capturedInScreenStream : .compositedInWriter
+    }
+}
+
 /// Central coordinator for all recording subsystems.
 /// Drives the recording state machine and routes buffers between managers and the writer.
 @Observable
@@ -273,6 +282,10 @@ final class RecordingEngine {
         cameraManager.isMirrored = mirrored
     }
 
+    func setCameraOverlayNormalizedFrame(_ normalizedFrame: CGRect?) {
+        videoWriter?.setCameraOverlayNormalizedFrame(normalizedFrame)
+    }
+
     // MARK: - Private
 
     private func runCountdown() async {
@@ -334,11 +347,13 @@ final class RecordingEngine {
         )
 
         // Start screen capture
+        var capturesSelectedWindow = false
         if settings.mode.includesScreen {
             // Window capture takes priority over display capture when a window is selected
             if let windowID = settings.selectedWindowID,
                let window = availableSources.windows.first(where: { $0.windowID == windowID })
             {
+                capturesSelectedWindow = true
                 try await screenManager.configureForWindow(
                     window,
                     captureSystemAudio: settings.captureSystemAudio
@@ -357,6 +372,10 @@ final class RecordingEngine {
 
         // Start camera
         if settings.mode.includesCamera {
+            let cameraCompositingStrategy = CameraCompositingStrategy.resolve(
+                modeIncludesScreen: settings.mode.includesScreen,
+                capturesSelectedWindow: capturesSelectedWindow
+            )
             if !cameraManager.isRunning {
                 try cameraManager.setupSession()
             }
@@ -368,11 +387,17 @@ final class RecordingEngine {
             cameraManager.isMirrored = settings.mirrorCamera
             cameraManager.startCapture()
 
-            if settings.mode.includesScreen {
-                // In screen recording mode, the camera bubble is captured as part of the screen.
-                // Avoid compositing a second camera PiP into the writer.
+            switch cameraCompositingStrategy {
+            case .capturedInScreenStream:
+                // In full-display capture, the floating bubble is already part of the screen stream.
                 cameraManager.setFrameHandler(nil)
-            } else {
+            case .compositedInWriter where settings.mode.includesScreen:
+                // Selected-window capture does not include Mool's overlay windows,
+                // so the camera bubble must be composited into the writer explicitly.
+                cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, _: CMTime) in
+                    self?.videoWriter?.updateCameraFrame(pixelBuffer)
+                }
+            case .compositedInWriter:
                 // Camera-only mode: camera frames drive the writer timeline directly.
                 cameraManager.setFrameHandler { [weak self] (pixelBuffer: CVPixelBuffer, pts: CMTime) in
                     self?.videoWriter?.appendCameraVideoFrame(pixelBuffer, at: pts)

@@ -1,9 +1,8 @@
-import XCTest
 @testable import Mool
+import XCTest
 
 @MainActor
 final class RecordingEngineStateTests: XCTestCase {
-
     var fakeScreen: FakeScreenCaptureManager!
     var fakeCamera: FakeCameraManager!
     var fakeAudio: FakeAudioManager!
@@ -142,5 +141,26 @@ final class RecordingEngineStateTests: XCTestCase {
         await Task.yield()
         await Task.yield()
         XCTAssertEqual(engine.state, .idle)
+    }
+
+    func testCameraCompositingStrategy_usesScreenStreamForDisplayCapture() {
+        XCTAssertEqual(
+            CameraCompositingStrategy.resolve(modeIncludesScreen: true, capturesSelectedWindow: false),
+            .capturedInScreenStream
+        )
+    }
+
+    func testCameraCompositingStrategy_usesWriterForWindowCapture() {
+        XCTAssertEqual(
+            CameraCompositingStrategy.resolve(modeIncludesScreen: true, capturesSelectedWindow: true),
+            .compositedInWriter
+        )
+    }
+
+    func testCameraCompositingStrategy_usesWriterForCameraOnly() {
+        XCTAssertEqual(
+            CameraCompositingStrategy.resolve(modeIncludesScreen: false, capturesSelectedWindow: false),
+            .compositedInWriter
+        )
     }
 }

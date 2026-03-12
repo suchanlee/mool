@@ -164,6 +164,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` finished
 - [x] Limit the pre-recording countdown overlay to the active capture display instead of every connected screen
 - [x] Limit window-capture countdown to the selected window region instead of the entire display
 - [x] Fix countdown overlay positioning by converting capture-space geometry into AppKit window coordinates before placement
+- [x] Restore camera bubble output for selected-window capture by compositing the live bubble geometry in the writer
 
 ---
 

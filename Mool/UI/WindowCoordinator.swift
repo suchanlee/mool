@@ -69,6 +69,33 @@ enum CountdownTargetResolver {
     }
 }
 
+enum CameraOverlayLayoutResolver {
+    static func normalizedFrame(overlayFrame: CGRect, within targetFrame: CGRect) -> CGRect? {
+        guard targetFrame.width > 0, targetFrame.height > 0 else { return nil }
+
+        return CGRect(
+            x: (overlayFrame.minX - targetFrame.minX) / targetFrame.width,
+            y: (overlayFrame.minY - targetFrame.minY) / targetFrame.height,
+            width: overlayFrame.width / targetFrame.width,
+            height: overlayFrame.height / targetFrame.height
+        )
+    }
+
+    static func defaultFrame(for overlaySize: CGSize, inside targetFrame: CGRect, margin: CGFloat = 24) -> CGRect {
+        let maxX = max(targetFrame.minX, targetFrame.maxX - overlaySize.width)
+        let maxY = max(targetFrame.minY, targetFrame.maxY - overlaySize.height)
+
+        let x = min(max(targetFrame.maxX - overlaySize.width - margin, targetFrame.minX), maxX)
+        let y = min(max(targetFrame.minY + margin, targetFrame.minY), maxY)
+
+        return CGRect(x: x, y: y, width: overlaySize.width, height: overlaySize.height)
+    }
+
+    static func overlapArea(lhs: CGRect, rhs: CGRect) -> CGFloat {
+        lhs.intersection(rhs).isNull ? 0 : lhs.intersection(rhs).width * lhs.intersection(rhs).height
+    }
+}
+
 // MARK: - Window Coordinator
 
 /// Owns and manages all overlay windows (control panel, camera bubble,
@@ -125,6 +152,7 @@ final class WindowCoordinator {
             cameraManager: recordingEngine.cameraManager
         )
         cameraBubbleWindow?.onFrameChanged = { [weak self] in
+            self?.syncRecordedCameraOverlayLayout()
             self?.updateBubbleAttachedHUD()
         }
         cameraBubbleWindow?.onMoveStateChanged = { [weak self] isMoving in
@@ -162,7 +190,9 @@ final class WindowCoordinator {
         annotationOverlayWindow?.orderFront(nil)
 
         if recordingEngine.settings.mode.includesCamera {
+            positionCameraBubbleForCaptureTargetIfNeeded()
             cameraBubbleWindow?.orderFront(nil)
+            syncRecordedCameraOverlayLayout()
             updateBubbleAttachedHUD()
         } else {
             positionControlPanelBottomCenter()
@@ -184,6 +214,7 @@ final class WindowCoordinator {
         annotationManager.isAnnotating = false
         cursorTracker.stopTracking()
         stopHUDHoverMonitoring()
+        recordingEngine.setCameraOverlayNormalizedFrame(nil)
     }
 
     func showQuickPreviewBubble() {
@@ -198,6 +229,7 @@ final class WindowCoordinator {
 
         if recordingEngine.settings.mode.includesCamera {
             recordingEngine.ensureIdlePreviewState()
+            positionCameraBubbleForCaptureTargetIfNeeded()
             cameraBubbleWindow?.orderFront(nil)
         } else {
             cameraBubbleWindow?.orderOut(nil)
@@ -268,6 +300,7 @@ final class WindowCoordinator {
             hideOverlays()
         }
         refreshQuickPreviewBubble()
+        syncRecordedCameraOverlayLayout()
         updateBubbleAttachedHUD()
         configureHUDHoverMonitoring()
 
@@ -327,7 +360,7 @@ final class WindowCoordinator {
     }
 
     private func showCountdownOverlay(secondsRemaining: Int) {
-        let targets = countdownTargets()
+        let targets = captureTargets()
         guard !targets.isEmpty else {
             hideCountdownOverlay()
             return
@@ -358,7 +391,7 @@ final class WindowCoordinator {
         }
     }
 
-    private func countdownTargets() -> [CountdownTargetResolver.Target] {
+    private func captureTargets() -> [CountdownTargetResolver.Target] {
         CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: recordingEngine.settings.mode.includesScreen,
             selectedDisplayIndex: recordingEngine.settings.selectedDisplayIndex,
@@ -378,6 +411,50 @@ final class WindowCoordinator {
                 )
             }
         )
+    }
+
+    private func activeCaptureTarget() -> CountdownTargetResolver.Target? {
+        captureTargets().first
+    }
+
+    private func positionCameraBubbleForCaptureTargetIfNeeded() {
+        guard recordingEngine.settings.mode.includesCamera,
+              recordingEngine.settings.mode.includesScreen,
+              let bubble = cameraBubbleWindow,
+              let target = activeCaptureTarget()
+        else {
+            return
+        }
+
+        let overlap = CameraOverlayLayoutResolver.overlapArea(lhs: bubble.frame, rhs: target.frame)
+        guard overlap == 0 else { return }
+
+        let nextFrame = CameraOverlayLayoutResolver.defaultFrame(for: bubble.frame.size, inside: target.frame)
+        bubble.setFrameOrigin(nextFrame.origin)
+    }
+
+    private func syncRecordedCameraOverlayLayout() {
+        guard recordingEngine.state != .idle else {
+            recordingEngine.setCameraOverlayNormalizedFrame(nil)
+            return
+        }
+
+        guard recordingEngine.settings.mode.includesCamera,
+              recordingEngine.settings.mode.includesScreen,
+              let selectedWindowID = recordingEngine.settings.selectedWindowID,
+              recordingEngine.availableSources.windows.contains(where: { $0.windowID == selectedWindowID }),
+              let bubble = cameraBubbleWindow,
+              let target = activeCaptureTarget()
+        else {
+            recordingEngine.setCameraOverlayNormalizedFrame(nil)
+            return
+        }
+
+        let normalized = CameraOverlayLayoutResolver.normalizedFrame(
+            overlayFrame: bubble.frame,
+            within: target.frame
+        )
+        recordingEngine.setCameraOverlayNormalizedFrame(normalized)
     }
 
     private func updateBubbleAttachedHUD() {

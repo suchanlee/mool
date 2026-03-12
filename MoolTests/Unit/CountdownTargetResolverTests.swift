@@ -83,4 +83,29 @@ final class CountdownTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(result, [])
     }
+
+    func testCameraOverlayLayout_normalizesBubbleFrameWithinCaptureTarget() {
+        let result = CameraOverlayLayoutResolver.normalizedFrame(
+            overlayFrame: CGRect(x: 860, y: 240, width: 220, height: 220),
+            within: CGRect(x: 400, y: 120, width: 1100, height: 880)
+        )
+
+        guard let result else {
+            return XCTFail("Expected a normalized overlay frame")
+        }
+
+        XCTAssertEqual(result.origin.x, 460.0 / 1100.0, accuracy: 0.0001)
+        XCTAssertEqual(result.origin.y, 120.0 / 880.0, accuracy: 0.0001)
+        XCTAssertEqual(result.width, 220.0 / 1100.0, accuracy: 0.0001)
+        XCTAssertEqual(result.height, 220.0 / 880.0, accuracy: 0.0001)
+    }
+
+    func testCameraOverlayLayout_defaultFrameAnchorsBubbleInsideTarget() {
+        let result = CameraOverlayLayoutResolver.defaultFrame(
+            for: CGSize(width: 220, height: 220),
+            inside: CGRect(x: 400, y: 120, width: 1100, height: 880)
+        )
+
+        XCTAssertEqual(result, CGRect(x: 1256, y: 144, width: 220, height: 220))
+    }
 }

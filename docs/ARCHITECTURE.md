@@ -138,7 +138,8 @@ User clicks menu bar status item
               Writer output dimensions are matched to SCStream source dimensions
               (screen/window content rect with the same 2x scaling)
               Receives screen video → adapts to AVAssetWriter input
-              In screen mode, avoids extra camera compositing so only the on-screen camera bubble is captured
+              In full-display capture, avoids extra camera compositing so only the on-screen camera bubble is captured
+              In selected-window capture, composites the live camera bubble in-writer using the current bubble geometry
               In camera-only mode, camera frames start and drive the writer timeline directly
               Receives audio → writes AAC track
               On stop → finishes writing → emits file URL

@@ -27,6 +27,7 @@ final class VideoWriter: Sendable {
     private nonisolated(unsafe) var pauseStartTime: CMTime = .invalid
     private nonisolated(unsafe) var totalPausedDuration: CMTime = .zero
     private nonisolated(unsafe) var latestCameraBuffer: CVPixelBuffer?
+    private nonisolated(unsafe) var cameraOverlayNormalizedFrame: CGRect?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     private let outputURL: URL
@@ -138,6 +139,12 @@ final class VideoWriter: Sendable {
         }
     }
 
+    func setCameraOverlayNormalizedFrame(_ normalizedFrame: CGRect?) {
+        withStateLock {
+            cameraOverlayNormalizedFrame = normalizedFrame
+        }
+    }
+
     /// In camera-only mode there is no SCStream video callback, so camera frames
     /// drive the writer session timeline directly.
     func appendCameraVideoFrame(_ pixelBuffer: CVPixelBuffer, at pts: CMTime) {
@@ -232,6 +239,7 @@ final class VideoWriter: Sendable {
             assetWriter = nil
             sessionStarted = false
             latestCameraBuffer = nil
+            cameraOverlayNormalizedFrame = nil
             isPaused = false
             pauseStartTime = .invalid
             totalPausedDuration = .zero
@@ -255,34 +263,31 @@ final class VideoWriter: Sendable {
     private func composite(screen: CVPixelBuffer, camera: CVPixelBuffer) -> CVPixelBuffer? {
         let screenCI = CIImage(cvPixelBuffer: screen)
         let cameraCI = CIImage(cvPixelBuffer: camera)
-        let screenW = CGFloat(CVPixelBufferGetWidth(screen))
-        let pipSize = screenW * 0.22
-        let margin: CGFloat = 20
-        let pipX = screenW - pipSize - margin
-        let pipY = margin
+        let overlayFrame = cameraOverlayFrame(in: screenCI.extent)
+        let overlaySide = min(overlayFrame.width, overlayFrame.height)
 
         // Fill a square PiP region first, then blend with a circular mask.
         let scale = max(
-            pipSize / max(cameraCI.extent.width, 1),
-            pipSize / max(cameraCI.extent.height, 1)
+            overlayFrame.width / max(cameraCI.extent.width, 1),
+            overlayFrame.height / max(cameraCI.extent.height, 1)
         )
         let fittedCamera = cameraCI.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         let centeredCamera = fittedCamera.transformed(
             by: CGAffineTransform(
-                translationX: (pipSize - fittedCamera.extent.width) / 2 - fittedCamera.extent.minX,
-                y: (pipSize - fittedCamera.extent.height) / 2 - fittedCamera.extent.minY
+                translationX: (overlayFrame.width - fittedCamera.extent.width) / 2 - fittedCamera.extent.minX,
+                y: (overlayFrame.height - fittedCamera.extent.height) / 2 - fittedCamera.extent.minY
             )
         )
         let squareCamera = centeredCamera
-            .cropped(to: CGRect(x: 0, y: 0, width: pipSize, height: pipSize))
-            .transformed(by: CGAffineTransform(translationX: pipX, y: pipY))
+            .cropped(to: CGRect(origin: .zero, size: overlayFrame.size))
+            .transformed(by: CGAffineTransform(translationX: overlayFrame.minX, y: overlayFrame.minY))
 
-        let center = CIVector(x: pipX + pipSize / 2, y: pipY + pipSize / 2)
+        let center = CIVector(x: overlayFrame.midX, y: overlayFrame.midY)
         let mask: CIImage? = {
             guard let radial = CIFilter(name: "CIRadialGradient") else { return nil }
             radial.setValue(center, forKey: "inputCenter")
-            radial.setValue(max(pipSize / 2 - 1, 0), forKey: "inputRadius0")
-            radial.setValue(pipSize / 2, forKey: "inputRadius1")
+            radial.setValue(max(overlaySide / 2 - 1, 0), forKey: "inputRadius0")
+            radial.setValue(overlaySide / 2, forKey: "inputRadius1")
             radial.setValue(CIColor(red: 1, green: 1, blue: 1, alpha: 1), forKey: "inputColor0")
             radial.setValue(CIColor(red: 0, green: 0, blue: 0, alpha: 0), forKey: "inputColor1")
             return radial.outputImage?.cropped(to: screenCI.extent)
@@ -305,6 +310,30 @@ final class VideoWriter: Sendable {
         guard let outputBuffer = out else { return nil }
         ciContext.render(composited, to: outputBuffer)
         return outputBuffer
+    }
+
+    private func cameraOverlayFrame(in screenExtent: CGRect) -> CGRect {
+        if let normalized = cameraOverlayNormalizedFrame,
+           normalized.width > 0,
+           normalized.height > 0
+        {
+            return CGRect(
+                x: screenExtent.minX + normalized.minX * screenExtent.width,
+                y: screenExtent.minY + normalized.minY * screenExtent.height,
+                width: normalized.width * screenExtent.width,
+                height: normalized.height * screenExtent.height
+            )
+        }
+
+        let margin: CGFloat = 20
+        let width = screenExtent.width * 0.22
+        let height = width
+        return CGRect(
+            x: screenExtent.maxX - width - margin,
+            y: screenExtent.minY + margin,
+            width: width,
+            height: height
+        )
     }
 }
 

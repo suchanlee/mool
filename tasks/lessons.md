@@ -5,3 +5,4 @@
 - When a built app shows the generic placeholder icon despite an AppIcon set existing, inspect the actual .app bundle for a missing Resources/Assets.car before assuming the runtime API is wrong.
 - When an overlay is tied to a selected capture target, do not default to `NSScreen.screens`; resolve the active display from the selected `SCDisplay` or the selected window’s frame so multi-display behavior matches the capture target.
 - When using `SCWindow.frame` or CoreGraphics display bounds to place AppKit overlay windows, convert from capture-space coordinates into AppKit screen coordinates before doing overlap tests or window placement.
+- When deciding whether the camera bubble should be captured from the screen stream or composited in the writer, distinguish full-display capture from `desktopIndependentWindow` capture. Selected-window streams never include Mool’s overlay windows.
