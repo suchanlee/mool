@@ -158,6 +158,7 @@ Status-menu `Open Library` / `Settings…` actions are handled through explicit 
 Countdown behavior:
 - `RecordingEngine.state = .countdown(secondsRemaining:)` before capture starts.
 - `WindowCoordinator` mirrors this state into a `CountdownOverlayWindow` only for the active capture region: the selected display in display mode, or the selected window frame in window-capture mode.
+- Countdown target geometry is resolved in capture-space first, then converted into AppKit coordinates before window placement so multi-display alignment stays correct.
 
 Disconnect behavior:
 - `ScreenCaptureManagerDidStop` triggers `RecordingEngine.stopRecording()`.

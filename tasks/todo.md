@@ -1,13 +1,13 @@
 # Task Plan
 
-- [x] Inspect the countdown target/overlay code and adapt it from display-only targeting to actual capture-region targeting.
-- [x] Implement window-region countdown behavior with focused resolver tests.
-- [x] Build/test, update docs/tasks, and record the result.
+- [x] Inspect countdown target geometry and confirm why overlay sizing is correct but placement is offset.
+- [x] Normalize countdown target frames into AppKit window coordinates before creating the overlay.
+- [x] Build/test, update docs/tasks/lessons, and record the result.
 
 ## Review
 
-- Root cause: after scoping countdown to a single display, window-capture countdown still used that display’s full screen bounds. That matched the chosen monitor but not the user’s requested capture target.
-- Fix: evolve `CountdownTargetResolver` in [`WindowCoordinator.swift`](/Users/suchanlee/code/mool/Mool/UI/WindowCoordinator.swift#L3) to return a concrete countdown target frame instead of only a display ID. Display capture still returns the selected display’s frame; window capture now returns the selected `SCWindow.frame`; camera-only returns no target. [`CountdownOverlayWindow`](/Users/suchanlee/code/mool/Mool/UI/Overlays/CountdownOverlayWindow.swift#L14) now accepts an arbitrary frame, so the countdown can render only over the target window region.
+- Root cause: countdown target resolution was mixing AppKit screen frames with `SCWindow.frame` / CoreGraphics display geometry. Those use different vertical coordinate origins, so the overlay could have the right size while being vertically misplaced.
+- Fix: [`WindowCoordinator.swift`](/Users/suchanlee/code/mool/Mool/UI/WindowCoordinator.swift#L3) now tracks each screen in both AppKit and capture-space coordinates, resolves the selected window against capture-space display bounds, and converts the resulting target into AppKit coordinates before constructing the overlay window.
 - Verification:
   - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' build`
   - [x] `xcodebuild -project Mool.xcodeproj -scheme Mool -destination 'platform=macOS' -only-testing:MoolTests/CountdownTargetResolverTests test`

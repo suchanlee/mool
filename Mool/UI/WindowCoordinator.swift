@@ -12,7 +12,8 @@ enum CountdownTargetResolver {
 
     struct ScreenTarget: Equatable {
         let displayID: CGDirectDisplayID
-        let frame: CGRect
+        let appKitFrame: CGRect
+        let captureFrame: CGRect
     }
 
     struct Target: Equatable {
@@ -34,28 +35,37 @@ enum CountdownTargetResolver {
         if let selectedWindowID,
            let window = availableWindows.first(where: { $0.windowID == selectedWindowID }),
            let screen = connectedScreens
-           .map({ ($0.displayID, overlapArea(lhs: $0.frame, rhs: window.frame)) })
+           .map({ ($0, overlapArea(lhs: $0.captureFrame, rhs: window.frame)) })
            .max(by: { $0.1 < $1.1 }),
            screen.1 > 0
         {
-            return [Target(displayID: screen.0, frame: window.frame)]
+            return [Target(displayID: screen.0.displayID, frame: appKitFrame(for: window.frame, on: screen.0))]
         }
 
         guard !availableDisplays.isEmpty else {
-            return [Target(displayID: connectedScreens[0].displayID, frame: connectedScreens[0].frame)]
+            return [Target(displayID: connectedScreens[0].displayID, frame: connectedScreens[0].appKitFrame)]
         }
 
         let index = min(max(selectedDisplayIndex, 0), availableDisplays.count - 1)
         let displayID = availableDisplays[index].displayID
         if let screen = connectedScreens.first(where: { $0.displayID == displayID }) {
-            return [Target(displayID: displayID, frame: screen.frame)]
+            return [Target(displayID: displayID, frame: screen.appKitFrame)]
         }
 
-        return [Target(displayID: connectedScreens[0].displayID, frame: connectedScreens[0].frame)]
+        return [Target(displayID: connectedScreens[0].displayID, frame: connectedScreens[0].appKitFrame)]
     }
 
     private static func overlapArea(lhs: CGRect, rhs: CGRect) -> CGFloat {
         lhs.intersection(rhs).isNull ? 0 : lhs.intersection(rhs).width * lhs.intersection(rhs).height
+    }
+
+    private static func appKitFrame(for captureFrame: CGRect, on screen: ScreenTarget) -> CGRect {
+        CGRect(
+            x: screen.appKitFrame.minX + (captureFrame.minX - screen.captureFrame.minX),
+            y: screen.appKitFrame.maxY - (captureFrame.minY - screen.captureFrame.minY) - captureFrame.height,
+            width: captureFrame.width,
+            height: captureFrame.height
+        )
     }
 }
 
@@ -361,7 +371,11 @@ final class WindowCoordinator {
             },
             connectedScreens: NSScreen.screens.compactMap { screen in
                 guard let displayID = screen.displayID else { return nil }
-                return CountdownTargetResolver.ScreenTarget(displayID: displayID, frame: screen.frame)
+                return CountdownTargetResolver.ScreenTarget(
+                    displayID: displayID,
+                    appKitFrame: screen.frame,
+                    captureFrame: CGDisplayBounds(displayID)
+                )
             }
         )
     }

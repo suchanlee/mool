@@ -158,6 +158,7 @@ AppDelegate
      - Sets `state = .recording`, starts elapsed timer
    - If startup fails at any point, it rolls back partial startup (stops capture sessions, cancels writer, clears session) and returns to `.idle`.
 5. `WindowCoordinator` shows recording overlays; during countdown it shows `CountdownOverlayWindow` only over the active capture region: the selected display in display-capture mode, or the selected window frame in window-capture mode.
+   - Countdown target geometry is normalized into AppKit coordinates before overlay placement because `SCWindow.frame` / CoreGraphics display bounds use a different vertical origin than AppKit windows.
    - In camera-including modes, the recording HUD is positioned below the camera bubble and only shown while hovering the bubble/HUD region.
 6. `ScreenCaptureManager` delegate callbacks (`nonisolated`) call `videoWriter.appendVideoFrame()` / `appendSystemAudio()` **directly on the capture queue** — no actor hops.
 7. User hits Stop → `engine.stopRecording()` → finishes `VideoWriter` → file saved to `~/Movies/Mool/` → `coordinator.hideOverlays()`.
@@ -266,7 +267,7 @@ The **ControlPanelWindow** uses `.nonactivatingPanel` style mask so clicking its
 In camera-including recording modes, `WindowCoordinator` attaches the control panel below `CameraBubbleWindow` and toggles visibility based on pointer hover over bubble/HUD using scoped mouse-event monitors; while actively dragging the bubble, the HUD is temporarily hidden.
 The **CameraBubbleWindow** move behavior is handled by AppKit mouse events on the panel itself, while a custom `NSHostingView` only ensures first-click delivery. The panel updates its frame directly in screen space (1:1 drag feel, reduced jitter, reliable first-drag pickup, visible-frame clamping). Bubble size is set via HUD presets (Small/Medium/Large), and the panel-level square shadow is disabled in favor of circular content shadow styling.
 
-The **CountdownOverlayWindow** is borderless, click-through, and shown only over the active capture region while `RecordingEngine.state` is `.countdown`.
+The **CountdownOverlayWindow** is borderless, click-through, and shown only over the active capture region while `RecordingEngine.state` is `.countdown`. Resolve target geometry in capture-space first, then convert to AppKit coordinates before creating the overlay window.
 
 ---
 

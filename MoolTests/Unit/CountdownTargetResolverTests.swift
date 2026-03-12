@@ -3,7 +3,7 @@ import CoreGraphics
 import XCTest
 
 final class CountdownTargetResolverTests: XCTestCase {
-    func testResolve_returnsSelectedDisplayFrameForDisplayCapture() {
+    func testResolve_returnsAppKitDisplayFrameForDisplayCapture() {
         let result = CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: true,
             selectedDisplayIndex: 1,
@@ -14,8 +14,16 @@ final class CountdownTargetResolverTests: XCTestCase {
             ],
             availableWindows: [],
             connectedScreens: [
-                .init(displayID: 10, frame: CGRect(x: 0, y: 0, width: 1440, height: 900)),
-                .init(displayID: 20, frame: CGRect(x: 1440, y: 0, width: 1440, height: 900))
+                .init(
+                    displayID: 10,
+                    appKitFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                    captureFrame: CGRect(x: 0, y: 0, width: 1440, height: 900)
+                ),
+                .init(
+                    displayID: 20,
+                    appKitFrame: CGRect(x: 1440, y: 0, width: 1440, height: 900),
+                    captureFrame: CGRect(x: 1440, y: 160, width: 1440, height: 900)
+                )
             ]
         )
 
@@ -25,7 +33,7 @@ final class CountdownTargetResolverTests: XCTestCase {
         )
     }
 
-    func testResolve_returnsSelectedWindowFrameForWindowCapture() {
+    func testResolve_convertsSelectedWindowFrameIntoAppKitCoordinates() {
         let result = CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: true,
             selectedDisplayIndex: 0,
@@ -38,14 +46,22 @@ final class CountdownTargetResolverTests: XCTestCase {
                 .init(windowID: 77, frame: CGRect(x: 1550, y: 120, width: 800, height: 600))
             ],
             connectedScreens: [
-                .init(displayID: 10, frame: CGRect(x: 0, y: 0, width: 1440, height: 900)),
-                .init(displayID: 20, frame: CGRect(x: 1440, y: 0, width: 1440, height: 900))
+                .init(
+                    displayID: 10,
+                    appKitFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                    captureFrame: CGRect(x: 0, y: 0, width: 1440, height: 900)
+                ),
+                .init(
+                    displayID: 20,
+                    appKitFrame: CGRect(x: 1440, y: 0, width: 1440, height: 900),
+                    captureFrame: CGRect(x: 1440, y: 0, width: 1440, height: 900)
+                )
             ]
         )
 
         XCTAssertEqual(
             result,
-            [.init(displayID: 20, frame: CGRect(x: 1550, y: 120, width: 800, height: 600))]
+            [.init(displayID: 20, frame: CGRect(x: 1550, y: 180, width: 800, height: 600))]
         )
     }
 
@@ -56,7 +72,13 @@ final class CountdownTargetResolverTests: XCTestCase {
             selectedWindowID: nil,
             availableDisplays: [.init(displayID: 10)],
             availableWindows: [],
-            connectedScreens: [.init(displayID: 10, frame: CGRect(x: 0, y: 0, width: 1440, height: 900))]
+            connectedScreens: [
+                .init(
+                    displayID: 10,
+                    appKitFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                    captureFrame: CGRect(x: 0, y: 0, width: 1440, height: 900)
+                )
+            ]
         )
 
         XCTAssertEqual(result, [])
