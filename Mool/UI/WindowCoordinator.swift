@@ -15,14 +15,19 @@ enum CountdownTargetResolver {
         let frame: CGRect
     }
 
-    static func resolveDisplayIDs(
+    struct Target: Equatable {
+        let displayID: CGDirectDisplayID
+        let frame: CGRect
+    }
+
+    static func resolveTargets(
         modeIncludesScreen: Bool,
         selectedDisplayIndex: Int,
         selectedWindowID: CGWindowID?,
         availableDisplays: [DisplaySource],
         availableWindows: [WindowSource],
         connectedScreens: [ScreenTarget]
-    ) -> [CGDirectDisplayID] {
+    ) -> [Target] {
         guard modeIncludesScreen else { return [] }
         guard !connectedScreens.isEmpty else { return [] }
 
@@ -33,20 +38,20 @@ enum CountdownTargetResolver {
            .max(by: { $0.1 < $1.1 }),
            screen.1 > 0
         {
-            return [screen.0]
+            return [Target(displayID: screen.0, frame: window.frame)]
         }
 
         guard !availableDisplays.isEmpty else {
-            return [connectedScreens[0].displayID]
+            return [Target(displayID: connectedScreens[0].displayID, frame: connectedScreens[0].frame)]
         }
 
         let index = min(max(selectedDisplayIndex, 0), availableDisplays.count - 1)
         let displayID = availableDisplays[index].displayID
-        if connectedScreens.contains(where: { $0.displayID == displayID }) {
-            return [displayID]
+        if let screen = connectedScreens.first(where: { $0.displayID == displayID }) {
+            return [Target(displayID: displayID, frame: screen.frame)]
         }
 
-        return [connectedScreens[0].displayID]
+        return [Target(displayID: connectedScreens[0].displayID, frame: connectedScreens[0].frame)]
     }
 
     private static func overlapArea(lhs: CGRect, rhs: CGRect) -> CGFloat {
@@ -312,18 +317,21 @@ final class WindowCoordinator {
     }
 
     private func showCountdownOverlay(secondsRemaining: Int) {
-        let screens = countdownTargetScreens()
-        guard !screens.isEmpty else {
+        let targets = countdownTargets()
+        guard !targets.isEmpty else {
             hideCountdownOverlay()
             return
         }
 
-        let currentDisplayIDs = countdownOverlayWindows.map(\.displayID)
-        let targetDisplayIDs = screens.map(\.displayID)
+        let currentTargets = countdownOverlayWindows.map {
+            CountdownTargetResolver.Target(displayID: $0.displayID ?? 0, frame: $0.frame)
+        }
 
-        if currentDisplayIDs != targetDisplayIDs {
+        if currentTargets != targets {
             countdownOverlayWindows.forEach { $0.orderOut(nil) }
-            countdownOverlayWindows = screens.map { CountdownOverlayWindow(screen: $0, secondsRemaining: secondsRemaining) }
+            countdownOverlayWindows = targets.map {
+                CountdownOverlayWindow(frame: $0.frame, displayID: $0.displayID, secondsRemaining: secondsRemaining)
+            }
         }
 
         for overlay in countdownOverlayWindows {
@@ -340,8 +348,8 @@ final class WindowCoordinator {
         }
     }
 
-    private func countdownTargetScreens() -> [NSScreen] {
-        let targetDisplayIDs = CountdownTargetResolver.resolveDisplayIDs(
+    private func countdownTargets() -> [CountdownTargetResolver.Target] {
+        CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: recordingEngine.settings.mode.includesScreen,
             selectedDisplayIndex: recordingEngine.settings.selectedDisplayIndex,
             selectedWindowID: recordingEngine.settings.selectedWindowID,
@@ -356,10 +364,6 @@ final class WindowCoordinator {
                 return CountdownTargetResolver.ScreenTarget(displayID: displayID, frame: screen.frame)
             }
         )
-
-        return targetDisplayIDs.compactMap { targetDisplayID in
-            NSScreen.screens.first(where: { $0.displayID == targetDisplayID })
-        }
     }
 
     private func updateBubbleAttachedHUD() {

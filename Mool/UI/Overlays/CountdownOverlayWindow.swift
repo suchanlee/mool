@@ -10,20 +10,16 @@ final class CountdownOverlayModel {
     }
 }
 
-/// Full-screen, click-through overlay for pre-recording countdown.
+/// Click-through overlay for pre-recording countdown.
 final class CountdownOverlayWindow: NSWindow {
     private let model: CountdownOverlayModel
     let displayID: CGDirectDisplayID?
 
-    init(screen: NSScreen, secondsRemaining: Int) {
+    init(frame: CGRect, displayID: CGDirectDisplayID?, secondsRemaining: Int) {
         model = CountdownOverlayModel(secondsRemaining: secondsRemaining)
-        if let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
-            displayID = CGDirectDisplayID(screenNumber.uint32Value)
-        } else {
-            displayID = nil
-        }
+        self.displayID = displayID
         super.init(
-            contentRect: screen.frame,
+            contentRect: frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false

@@ -3,8 +3,8 @@ import CoreGraphics
 import XCTest
 
 final class CountdownTargetResolverTests: XCTestCase {
-    func testResolve_returnsSelectedDisplayForDisplayCapture() {
-        let result = CountdownTargetResolver.resolveDisplayIDs(
+    func testResolve_returnsSelectedDisplayFrameForDisplayCapture() {
+        let result = CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: true,
             selectedDisplayIndex: 1,
             selectedWindowID: nil,
@@ -19,11 +19,14 @@ final class CountdownTargetResolverTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(result, [20])
+        XCTAssertEqual(
+            result,
+            [.init(displayID: 20, frame: CGRect(x: 1440, y: 0, width: 1440, height: 900))]
+        )
     }
 
-    func testResolve_returnsDisplayContainingSelectedWindow() {
-        let result = CountdownTargetResolver.resolveDisplayIDs(
+    func testResolve_returnsSelectedWindowFrameForWindowCapture() {
+        let result = CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: true,
             selectedDisplayIndex: 0,
             selectedWindowID: 77,
@@ -40,11 +43,14 @@ final class CountdownTargetResolverTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(result, [20])
+        XCTAssertEqual(
+            result,
+            [.init(displayID: 20, frame: CGRect(x: 1550, y: 120, width: 800, height: 600))]
+        )
     }
 
-    func testResolve_returnsNoDisplaysWhenScreenCaptureDisabled() {
-        let result = CountdownTargetResolver.resolveDisplayIDs(
+    func testResolve_returnsNoTargetsWhenScreenCaptureDisabled() {
+        let result = CountdownTargetResolver.resolveTargets(
             modeIncludesScreen: false,
             selectedDisplayIndex: 0,
             selectedWindowID: nil,

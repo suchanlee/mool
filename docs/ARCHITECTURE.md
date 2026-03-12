@@ -157,7 +157,7 @@ Status-menu `Open Library` / `Settings…` actions are handled through explicit 
 
 Countdown behavior:
 - `RecordingEngine.state = .countdown(secondsRemaining:)` before capture starts.
-- `WindowCoordinator` mirrors this state into a `CountdownOverlayWindow` only for the active capture display (or the display containing the selected window in window-capture mode).
+- `WindowCoordinator` mirrors this state into a `CountdownOverlayWindow` only for the active capture region: the selected display in display mode, or the selected window frame in window-capture mode.
 
 Disconnect behavior:
 - `ScreenCaptureManagerDidStop` triggers `RecordingEngine.stopRecording()`.
@@ -188,7 +188,7 @@ All overlay windows share these properties:
 | CameraBubbleWindow | NSPanel, borderless | Draggable via AppKit mouse events on the panel, with a custom hosting view enabling first-click delivery; size is controlled by HUD presets (Small/Medium/Large); uses circular-only shadow (no square panel shadow artifact) |
 | AnnotationOverlayWindow | NSWindow, transparent | Pass-through by default; captures events when drawing mode on |
 | SpeakerNotesWindow | NSPanel, `.nonactivatingPanel` | Editable text area |
-| CountdownOverlayWindow | NSWindow, borderless | Full-screen dim + large pre-roll countdown number on the active capture display only |
+| CountdownOverlayWindow | NSWindow, borderless | Dims only the active capture region and shows the pre-roll countdown there |
 
 ---
 
